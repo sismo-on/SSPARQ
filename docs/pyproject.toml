@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "RSBR_15_years"
+version = "0.1.0"
+description = "Documentação do projeto RSBR_15_years"
+authors = ["Diogo L.O.C. <locdiogo@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+jupyterlab = "^3.4"
+myst-parser = "^0.18.1"
+sphinx = "^5.0"
+nbsphinx = "^0.8"
+furo = "^2021.12.0"
+obsPy = "^1.2.1"
+pyarrow = "^11.0"
+tqdm = "^4.65.0"
+pandas = "^2.0.0"
+sphinx-rtd-theme = "^1.0.0"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,85 @@
+# ------------------------------------------------------------------------------
+#                 Configuration file of the computational routines
+# ------------------------------------------------------------------------------
+#
+# Author: Diogo L.O.C. (diogoloc@on.br)
+#
+# Last Date: 06/2025
+#
+# Description:
+# This is an example of configuration file, wherein global paths and parameters
+# related to the analysis of quality of seismological data are defined. At least
+# one file should reside in the folder in which you intend to run your scripts.
+# The configuration file(s) can have any name, as long as the extension is 'cnf':
+# e.g., 'analysis.cnf', 'config.cnf', 'myconfig.cnf', 'test.cnf'...
+#
+# The parameters are divided in several sections:
+# - [paths]           : default paths to input/output folders
+# - [event]           : parameters to analyse event data
+#
+# Before using the scripts, you should at least make sure that the paths in
+# section [paths] are consistent with your own files and folders organization.
+#
+# More information in:
+# https://wiki.python.org/moin/ConfigParser
+#
+# ------------------------------------------------------------------------------
+
+#======
+[paths]
+#======
+
+## ------------------------
+## Directory with waveforms (SeisComP Data Structure)
+## The basic directory and file layout is defined as:
+## <SDSdir>/Year/NET/STA/CHAN.TYPE/NET.STA.LOC.CHAN.TYPE.YEAR.DAY
+
+WAVEFORM_DIR = Sample/MSEED/
+
+## ---------------------------
+## Directory with the catalog file (CGMT in xml[QUAKEML])
+
+CATALOG_FILE = Sample/CATALOG/CMTSOLUTIONS_2010_2025.xml
+
+## ----------------------------
+## Directory of the StationXML:
+
+XML_DIR = Sample/XML/
+
+## -----------------------
+## Directory of the output (Figures and Feathers file)
+
+SSPARQ_OUTPUT = Sample/OUTPUT/
+
+#======
+[event]
+#======
+
+## -------------------------------------------------------------------
+## Taup_time model to calculate travel times
+TAUPY_MODEL = iasp91
+
+## -------------------------------------------------------------------
+## Apply band-pass filtering to the seismograms using the range above:
+
+PERIOD_BANDS_MAX = 0.5
+
+PERIOD_BANDS_MIN = 0.02
+
+## ===================================================================================
+## Default parameters to define the signal and noise windows used to estimate the SNR:
+
+## ------------------------------------------------------------------------------
+## Duration of the signal window before and after the P-wave arrival (in seconds)
+
+TIME_WINDOW = 120
+
+## ---------------------------------------------------------------
+## P-wave time window for events (in seconds after P-wave arrival)
+
+TIME_FINAL_P = 5
+
+## ---------------
+## MULTIPROCESSING
+
+num_processes = 20
