@@ -118,7 +118,20 @@ The following notebooks are provided:
    ```bash
    jupyter-lab
    ```
-3. Run the following notebooks to reproduce the results:
+3. Download the dataset
+- To reproduce the results, first download the dataset used in this study from Zenodo:
+   - **de Oliveira Coelho, D. L. (2025)**.  
+   - *Scalable Seismological Pipeline for Assessment, Review, and Quality (SSPARQ) of Seismic Data* [Data set].  
+   - Zenodo. https://doi.org/10.5281/zenodo.15739711
+
+   You can download it manually from the [Zenodo page](https://doi.org/10.5281/zenodo.15739711) or use `wget`:
+
+   ```bash
+   wget https://zenodo.org/record/15739711/files/SSPARQ_dataset.zip
+   unzip SSPARQ_dataset.zip -d data/
+   ```
+   
+4. Run the following notebooks to reproduce the results:
 - Estimate earthquake metrics from raw seismic data:
    - `SSPARQ_estimative.ipynb`
 - Generate diagnostic plots for individual earthquakes:
@@ -158,6 +171,7 @@ The implementation of the algorithms and methods in this repository is based on 
 All experiments were conducted on two different setups running **Debian GNU/Linux 12 (Bookworm)**:  
 
 - 💻 **AMD Ryzen 7 5700U** with **10 GB RAM**  
+- 💻 **AMD Ryzen 5 5600X** with **16 GB RAM**  
 - 💻 **Intel® Core™ Ultra 9** with **64 GB RAM**  
 
 📣 **Multiprocessing is implemented.**  
