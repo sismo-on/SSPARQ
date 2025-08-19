@@ -55,7 +55,7 @@ SSPARQ_OUTPUT = Sample/OUTPUT/
 [event]
 #======
 
-## -------------------------------------------------------------------
+## -----------------------------------------
 ## Taup_time model to calculate travel times
 TAUPY_MODEL = iasp91
 

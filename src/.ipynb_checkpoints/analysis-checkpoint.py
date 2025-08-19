@@ -329,7 +329,6 @@ def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=0.5,
 # ---------------------------------------------------------------------------------------------------
 
 def calculate_metrics(input_lst):
-
     """
     This function calculates the optimal orientation of horizontal seismic components (phi, theta) for a given station, 
     using a set of qualifying seismic events. It processes waveform data for P-wave arrivals and evaluates their quality 
@@ -342,16 +341,22 @@ def calculate_metrics(input_lst):
     The results—including orientation angles, waveform data, energy metrics, and event classification—are stored in 
     a `.feather` file per event for later analysis.
 
-    Parameters:
+    Parameters
     ----------
     input_lst : list
-        A list containing two elements:
+        A list containing the following elements:
             - XML_FILE (str): Path to the station XML metadata file (StationXML format).
             - WAVE_DIR (str): Path to the directory containing waveform files associated with the events.
-            - CAT (list): Catalog with events.
+            - evdp (float): Event depth in kilometers.
+            - evmag (float): Event magnitude.
+            - evtype (str): Event magnitude type.
+            - evtime (str or datetime): Event origin time.
+            - evla (float): Event latitude.
+            - evlo (float): Event longitude.
+            - moment_tensor (list): Event moment tensor components (empty list if unavailable).
             - SSPARQ_OUTPUT (str): Path to the output folder.
 
-    Returns:
+    Returns
     -------
     None
         This function does not return a value. Instead, it saves a `.feather` file for each valid event to:
@@ -359,54 +364,43 @@ def calculate_metrics(input_lst):
         The file contains a DataFrame with waveform segments, results (phi, theta), SNR, and event metadata.
     """
 
-    XML_FILE = input_lst[0]
-    WAVE_DIR = input_lst[1]
-    CAT = input_lst[2]
-    SSPARQ_OUTPUT = input_lst[3]
-    
+    XML_FILE      = input_lst[0]
+    WAVE_DIR      = input_lst[1]
+    evdp          = input_lst[2]
+    evmag         = input_lst[3]
+    evtype        = input_lst[4]
+    evtime        = UTCDateTime(input_lst[5])
+    evname        = evtime.strftime('%Y.%j.%H.%M.%S')
+    evla          = input_lst[6]
+    evlo          = input_lst[7]
+    moment_tensor = input_lst[8]     # Momemnt tensor data (may be []):
+    SSPARQ_OUTPUT = input_lst[9]
+    year       = evtime.strftime('%Y')
+    julian_day = evtime.strftime('%j')
+
+
     # ---------------
     # Read XML file
-                        
     station_xml = op.read_inventory(XML_FILE)
     network = station_xml[0].code
     station = station_xml[0][0].code    
-    
-    # ---------------------------
-    # Retrieving events waveforms
-    # ---------------------------
-    
-    for evid,event in tqdm(CAT.iterrows(), total=len(CAT),desc=station+' estimation'):
-        # ------------------------------
-        # Check if the event is eligible
 
-        evdp = event['depth']
-        evmag = event['mag']
-        evtype = event['magType']
-        evtime = UTCDateTime(event['time'])
-        evname = UTCDateTime(event['time']).strftime('%Y.%j.%H.%M.%S')
-
-        year = UTCDateTime(event['time']).strftime('%Y')
-        julian_day = UTCDateTime(event['time']).strftime('%j')
-
-        # -------------------------------
-        # Epicentral distance estimation:
+    # -------------------------------
+    # Epicentral distance estimation:
+    stlo = station_xml[-1][-1][-1].longitude
+    stla = station_xml[-1][-1][-1].latitude
             
-        stlo = station_xml[-1][-1][-1].longitude
-        stla = station_xml[-1][-1][-1].latitude
-            
-        evla = event['latitude']
-        evlo = event['longitude']
-            
-        dist,az,baz = gps2dist_azimuth(evla, evlo,stla, stlo)
-        gcarc = kilometers2degrees(dist/1000)
+    dist, az, baz = gps2dist_azimuth(evla, evlo, stla, stlo)
+    gcarc = kilometers2degrees(dist/1000)
 
-        # -------------------------------
-        # Taup: theoretical travel times 
 
-        model = TauPyModel(model=TAUPY_MODEL)
-        arrivals = model.get_travel_times(source_depth_in_km=evdp,distance_in_degree=gcarc,phase_list=['P','PKP','PKIKP'])
+    # -------------------------------
+    # Taup: theoretical travel times 
+
+    model = TauPyModel(model=TAUPY_MODEL)
+    arrivals = model.get_travel_times(source_depth_in_km=evdp,distance_in_degree=gcarc,phase_list=['P','PKP','PKIKP'])
         
-        if len(arrivals) > 0 and (gcarc < 100 or 140 < gcarc <= 180):
+    if len(arrivals) > 0 and (gcarc < 100 or 140 < gcarc <= 180):
             
             # Event time + first phase arrival time
             evtime = evtime+arrivals[0].time
@@ -467,14 +461,14 @@ def calculate_metrics(input_lst):
                                 # Remove 5 seconds from the beginning and end of the waveform to eliminate edge effects
                                 
                                 # HHE
-                                tr2_data_filtered = tr2_data_file[0].data[500:-500]
+                                tr2_data_filtered = tr2_data_file[0].data[int(5 * trZ_data_file[0].stats.sampling_rate):int(-5 * trZ_data_file[0].stats.sampling_rate)]
                                 
                                 # HHN
-                                tr1_data_filtered = tr1_data_file[0].data[500:-500]
+                                tr1_data_filtered = tr1_data_file[0].data[int(5 * trZ_data_file[0].stats.sampling_rate):int(-5 * trZ_data_file[0].stats.sampling_rate)]
                                     
                                 # HHZ
-                                trZ_data_filtered = trZ_data_file[0].data[500:-500]
-                                trZ_time = trZ_data_file[0].times()[500:-500]-TIME_WINDOW
+                                trZ_data_filtered = trZ_data_file[0].data[int(5 * trZ_data_file[0].stats.sampling_rate):int(-5 * trZ_data_file[0].stats.sampling_rate)]
+                                trZ_time = trZ_data_file[0].times()[int(5 * trZ_data_file[0].stats.sampling_rate):int(-5 * trZ_data_file[0].stats.sampling_rate)]-TIME_WINDOW
 
                                 # -------------------------------------------
                                 # Function estimates the Akaike Information directly from data 
@@ -523,19 +517,19 @@ def calculate_metrics(input_lst):
                                 # -------------------------------------------------------------------------------------------------------------------------------
                                 # Calculating the Plunge of: P, B, and T axis
 
-                                if not event.get('moment tensor'):
+                                if not moment_tensor:
                                     # ----------------------------------------------------------------------------------------------------                               
                                     # Creating a Pandas DataFrame:
                                     column_info = [network,station,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['gain_HHN'],results['gain_HHE'],results['gain_HHZ']]
                                     columns_header = ['network','station','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','gain_HHN','gain_HHE','gain_HHZ']
                                     
                                 else:                                
-                                    nodal_planes = moment_tensor_to_nodal_planes(event['moment tensor'])
+                                    nodal_planes = moment_tensor_to_nodal_planes(moment_tensor)
                                     event_class = mecclass(nodal_planes)
 
                                     # ----------------------------------------------------------------------------------------------------                               
                                     # Creating a Pandas DataFrame:
-                                    column_info = [network,station,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['gain_HHN'],results['gain_HHE'],results['gain_HHZ'],event['moment tensor'],nodal_planes,event_class]
+                                    column_info = [network,station,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['gain_HHN'],results['gain_HHE'],results['gain_HHZ'],moment_tensor,nodal_planes,event_class]
                                     columns_header = ['network','station','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','gain_HHN','gain_HHE','gain_HHZ','moment tensor','nodal_planes','event_class']
                                     
                                     

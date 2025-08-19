@@ -1,0 +1,22 @@
+name: SSPARQ
+channels:
+  - defaults
+dependencies:
+  - python=3.11.9
+  - matplotlib=3.10.0
+  - pandas=2.3.1
+  - pip=25.1
+  - pyarrow=19.0.0
+  - tqdm=4.67.1
+  - jupyterlab=4.4.4
+  - scipy=1.13.1
+  - numpy=1.26.4
+  - tqdm=4.67.1
+  - cartopy=0.24.1
+  - scikit-learn=1.7.1
+  - shapely=2.1.1
+  - pyproj=3.6.1
+
+  - pip:
+      - kneed==0.8.5
+      - obspy==1.4.2

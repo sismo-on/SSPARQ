@@ -3,10 +3,10 @@
          Module that parses global parameters from a configuration file
 --------------------------------------------------------------------------------
 
-Author: Diogo L.O.C. (diogoloc@on.br)
+Author: Diogo L.O.C. (locdiogo@gmail.com)
 
 
-Last Date: 06/2025
+Last Date: 08/2025
 
 Description:
 Module that parses global parameters from a configuration file at first import,

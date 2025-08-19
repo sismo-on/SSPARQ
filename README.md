@@ -40,16 +40,14 @@ The following libraries are used in this project:
 - [cartopy](https://scitools.org.uk/cartopy/): Geographic mapping and projections
 
 
-## 🖱️ Installation 🖱️
+## 📀 Installation 📀
 
-To use the provided notebooks, install the required dependencies:
+This project provides an `environment.yml` file to ensure reproducibility of results.  
+To set up the environment, install [Conda](https://docs.conda.io/) and run:
 
 ```bash
-# Core packages
-pip install obspy scikit-learn tqdm kneed
-
-# Visualization
-pip install cartopy shapely pyproj
+conda env create -f environment.yml
+conda activate SSPARQ
 ```
 
 ## 🏗️ Repository structure 🏗️
