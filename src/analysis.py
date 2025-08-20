@@ -411,7 +411,7 @@ def calculate_metrics(input_lst):
             
             file_feather_name = output_FEATHER_FILES_METRICS+network+'.'+station+'.'+evname+'.metrics.feather'
     
-            station_pwd = list(Path(WAVE_DIR).rglob(f'*{evname}*'))
+            station_pwd = list(Path(WAVE_DIR).rglob('*'+year+'.'+julian_day+'*'))
   
             if os.path.isfile(file_feather_name):
                 pass
@@ -420,7 +420,7 @@ def calculate_metrics(input_lst):
                 # -------------------------------
                 # Check if components file exists
                         
-                files = [str(x) for x in station_pwd if str(x).endswith(evname)]
+                files = [str(x) for x in station_pwd if year+'.'+julian_day in str(x)]
 
                 if len(files) >= 3:
                         

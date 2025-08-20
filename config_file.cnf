@@ -35,26 +35,22 @@
 ## The basic directory and file layout is defined as:
 ## <SDSdir>/Year/NET/STA/CHAN.TYPE/NET.STA.LOC.CHAN.TYPE.YEAR.DAY
 
-#WAVEFORM_DIR = Sample/MSEED/
-WAVEFORM_DIR = /home/enseadamartel/Documents/SISMOLOGIA/SSPARQ_OUTPUT/MSEED/
+WAVEFORM_DIR = Sample/MSEED/
 
 ## ---------------------------
 ## Directory with the catalog file (CGMT in xml[QUAKEML])
 
-#CATALOG_FILE = Sample/CATALOG/CMTSOLUTIONS_2010_2025.xml
-CATALOG_FILE = /home/enseadamartel/Documents/SISMOLOGIA/SSPARQ_OUTPUT/CATALOG/CMTSOLUTIONS_2010_2025.xml
+CATALOG_FILE = Sample/CATALOG/CMTSOLUTIONS_2010_2025.xml
 
 ## ----------------------------
 ## Directory of the StationXML:
 
-#XML_DIR = Sample/XML/
-XML_DIR = /home/enseadamartel/Documents/SISMOLOGIA/SSPARQ_OUTPUT/XML/
+XML_DIR = Sample/XML/
 
 ## -----------------------
 ## Directory of the output (Figures and Feathers file)
 
-#SSPARQ_OUTPUT = Sample/OUTPUT/
-SSPARQ_OUTPUT = /home/enseadamartel/Documents/SISMOLOGIA/SSPARQ_OUTPUT/OUTPUT/
+SSPARQ_OUTPUT = Sample/OUTPUT/
 
 #======
 [event]
