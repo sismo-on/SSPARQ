@@ -50,18 +50,6 @@ conda env create -f environment.yml
 conda activate SSPARQ
 ```
 
-## ⚙️ Configuration File ⚙️
-
-This project uses a **configuration file (.cnf)*** to define paths and parameters for the analysis. You must place at least one configuration file in the working directory where you run your scripts.
-
-The configuration file can have any name, as long as the extension is .cnf (e.g., analysis.cnf, config.cnf, myconfig.cnf, test.cnf).
-
-**Parameters are organized into sections:**
-
-- [paths]: input/output directories
-- [event]: parameters for event analysis
-- [algoritm]: Braunmiller & Pornsopin algorithm parameters
-
 ## 🏗️ Repository structure 🏗️
 
 ```plaintext
@@ -119,6 +107,18 @@ The following notebooks are provided:
 
 ## ⌨️ Usage ⌨️
 
+### ⚙️ Configuration File ⚙️
+
+This project uses a **configuration file (.cnf)*** to define paths and parameters for the analysis. You must place at least one configuration file in the working directory where you run your scripts.
+
+The configuration file can have any name, as long as the extension is .cnf (e.g., analysis.cnf, config.cnf, myconfig.cnf, test.cnf).
+
+**Parameters are organized into sections:**
+
+- [paths]: input/output directories
+- [event]: parameters for event analysis
+- [algoritm]: Braunmiller & Pornsopin algorithm parameters
+
 1. Clone this repository:
    ```bash
    git clone <repository_url>
@@ -132,14 +132,9 @@ The following notebooks are provided:
 - To reproduce the results, first download the dataset used in this study from Zenodo:
    - **de Oliveira Coelho, D. L. (2025)**.  
    - *Scalable Seismological Pipeline for Assessment, Review, and Quality (SSPARQ) of Seismic Data* [Data set].  
-   - Zenodo. https://doi.org/10.5281/zenodo.15739711
+   - Zenodo. https://doi.org/10.5281/zenodo.16912134
 
-   You can download it manually from the [Zenodo page](https://doi.org/10.5281/zenodo.15739711) or use `wget`:
-
-   ```bash
-   wget https://zenodo.org/record/15739711/files/SSPARQ_dataset.zip
-   unzip SSPARQ_dataset.zip -d data/
-   ```
+   You can download it manually from the [Zenodo page](https://doi.org/10.5281/zenodo.16912134)
    
 4. Run the following notebooks to reproduce the results:
 - Estimate earthquake metrics from raw seismic data:
