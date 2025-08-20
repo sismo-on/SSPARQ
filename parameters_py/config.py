@@ -124,3 +124,25 @@ TIME_FINAL_P = config.getfloat('event', 'TIME_FINAL_P')
 
 num_processes = config.getint('event', 'num_processes')
 
+# --------
+# algoritm
+# --------
+## -------------------------------------------------------------
+## Minimum required similarity of vertical and radial components (default is 0.5).
+
+CVR_MIN = config.getfloat('algoritm', 'CVR_MIN')
+
+## --------------------------------------
+## Minimum required signal-to-noise ratio (default is 10).
+
+SNR_MIN = config.getfloat('algoritm', 'SNR_MIN')
+
+## --------------------------------------------------
+## Minimum required transverse-to-radial energy ratio (default is 0.2).
+
+TRR_MIN = config.getfloat('algoritm', 'TRR_MIN')
+
+## -----------------------------------------------
+## Minimum allowed radial-to-vertical energy ratio (default is 2).
+RVR_MIN = config.getfloat('algoritm', 'RVR_MIN')
+

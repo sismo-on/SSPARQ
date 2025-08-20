@@ -16,7 +16,8 @@ from obspy.signal.rotate import rotate_ne_rt
 import pyarrow.feather as feather
 
 from parameters_py.config import (
-					WAVEFORM_DIR,CATALOG_FILE,XML_DIR,SSPARQ_OUTPUT,num_processes,TAUPY_MODEL,TIME_WINDOW,PERIOD_BANDS_MAX,PERIOD_BANDS_MIN,TIME_FINAL_P
+					WAVEFORM_DIR,CATALOG_FILE,XML_DIR,SSPARQ_OUTPUT,num_processes,TAUPY_MODEL,TIME_WINDOW,PERIOD_BANDS_MAX,PERIOD_BANDS_MIN,TIME_FINAL_P,
+                    CVR_MIN,SNR_MIN,TRR_MIN,RVR_MIN
 				   )
 
 from src.utils import (
@@ -135,7 +136,7 @@ def find_orientation(baz,SS,SZR,ERTR,ERRZ):
 
 # --------------------------------------------------------------------------
 
-def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=0.5,SNR_MIN=10,TRR_MIN=0.2,RVR_MIN=2):
+def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_MIN,SNR_MIN=SNR_MIN,TRR_MIN=TRR_MIN,RVR_MIN=RVR_MIN):
 
     """
     Estimate back azimuth using P-wave particle motion and apply quality criteria.
@@ -378,8 +379,7 @@ def calculate_metrics(input_lst):
     year       = evtime.strftime('%Y')
     julian_day = evtime.strftime('%j')
 
-
-    # ---------------
+    # -------------
     # Read XML file
     station_xml = op.read_inventory(XML_FILE)
     network = station_xml[0].code
@@ -392,7 +392,6 @@ def calculate_metrics(input_lst):
             
     dist, az, baz = gps2dist_azimuth(evla, evlo, stla, stlo)
     gcarc = kilometers2degrees(dist/1000)
-
 
     # -------------------------------
     # Taup: theoretical travel times 
@@ -461,10 +460,10 @@ def calculate_metrics(input_lst):
                                 # Remove 5 seconds from the beginning and end of the waveform to eliminate edge effects
                                 
                                 # HHE
-                                tr2_data_filtered = tr2_data_file[0].data[int(5 * trZ_data_file[0].stats.sampling_rate):int(-5 * trZ_data_file[0].stats.sampling_rate)]
+                                tr2_data_filtered = tr2_data_file[0].data[int(5 * tr2_data_file[0].stats.sampling_rate):int(-5 * tr2_data_file[0].stats.sampling_rate)]
                                 
                                 # HHN
-                                tr1_data_filtered = tr1_data_file[0].data[int(5 * trZ_data_file[0].stats.sampling_rate):int(-5 * trZ_data_file[0].stats.sampling_rate)]
+                                tr1_data_filtered = tr1_data_file[0].data[int(5 * tr1_data_file[0].stats.sampling_rate):int(-5 * tr1_data_file[0].stats.sampling_rate)]
                                     
                                 # HHZ
                                 trZ_data_filtered = trZ_data_file[0].data[int(5 * trZ_data_file[0].stats.sampling_rate):int(-5 * trZ_data_file[0].stats.sampling_rate)]
@@ -496,7 +495,7 @@ def calculate_metrics(input_lst):
                                     noise_window_start = time_ins
                                     noise_window_final = -(abs(time_ins)+TIME_FINAL_P) 
                                 # -------------------------------------------------------------------------------------------------------------------------------
-                                # Signal and noise windows
+                                # Signal and noise windows (using mask[boolean array] from numpy)
                                         
                                 signal_window = (trZ_time >= signal_window_start) & (trZ_time <= signal_window_final)
                                 noise_window = (trZ_time >= noise_window_final) & (trZ_time <= noise_window_start)
@@ -518,8 +517,10 @@ def calculate_metrics(input_lst):
                                 # Calculating the Plunge of: P, B, and T axis
 
                                 if not moment_tensor:
+                                    
                                     # ----------------------------------------------------------------------------------------------------                               
                                     # Creating a Pandas DataFrame:
+                                    
                                     column_info = [network,station,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['gain_HHN'],results['gain_HHE'],results['gain_HHZ']]
                                     columns_header = ['network','station','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','gain_HHN','gain_HHE','gain_HHZ']
                                     
@@ -529,6 +530,7 @@ def calculate_metrics(input_lst):
 
                                     # ----------------------------------------------------------------------------------------------------                               
                                     # Creating a Pandas DataFrame:
+                                    
                                     column_info = [network,station,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['gain_HHN'],results['gain_HHE'],results['gain_HHZ'],moment_tensor,nodal_planes,event_class]
                                     columns_header = ['network','station','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','gain_HHN','gain_HHE','gain_HHZ','moment tensor','nodal_planes','event_class']
                                     

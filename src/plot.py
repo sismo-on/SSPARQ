@@ -167,7 +167,7 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
     new_R, new_T = rotate_ne_rt(df_row['tr1_data'], df_row['tr2_data'], df_row['phi'])
 
     # Transversal data
-    ax1 = fig.add_subplot(gs0[0, 0])
+    ax1 = fig.add_subplot(gs0[2, 0])
     ax1.plot(df_row['trZ_time'],new_T,'-k',lw=2,label='HHT')
     ax1.plot(trZ_signal_time,tr2,c='gray',ls='--',lw=1,label='HHE')
     ax1.axvspan(xmin=signal_window_start, xmax=signal_window_final, ymin=0, ymax=1,facecolor='none', edgecolor='blue', linestyle='--', lw=2,alpha=0.25)
@@ -179,7 +179,7 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
 
     # Radial data
     ax2 = fig.add_subplot(gs0[1, 0], sharex=ax1, sharey=ax1)
-    ax2.plot(df_row['trZ_time'],new_R,'-k',label='HHR')
+    ax2.plot(df_row['trZ_time'],new_R,'-k',lw=2,label='HHR')
     ax2.plot(trZ_signal_time,tr1,c='gray',ls='--',lw=1,label='HHN')
     ax2.axvspan(xmin=signal_window_start, xmax=signal_window_final, ymin=0, ymax=1,facecolor='none', edgecolor='blue', linestyle='--', lw=2,alpha=0.25)
     ax2.annotate(df_row['network']+'.'+df_row['station']+'..HHR', (0.95, 0.85),xycoords='axes fraction',fontsize=15, va='center',ha='right',bbox=dict(boxstyle="round", fc="white"))
@@ -188,8 +188,8 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
     ax2.legend(loc='lower left')
 
     # Vertical data and noise and signal window
-    ax3 = fig.add_subplot(gs0[2, 0], sharex=ax1, sharey=ax1)
-    ax3.plot(df_row['trZ_time'],df_row['trZ_data'],'-k')
+    ax3 = fig.add_subplot(gs0[0, 0], sharex=ax1, sharey=ax1)
+    ax3.plot(df_row['trZ_time'],df_row['trZ_data'],'-k',lw=2)
     ax3.tick_params(axis="x", labelbottom=False)
     ax3.annotate(df_row['network']+'.'+df_row['station']+'..HHZ', (0.95, 0.85),xycoords='axes fraction',fontsize=15, va='center',ha='right',bbox=dict(boxstyle="round", fc="white"))
     ax3.axvspan(xmin=signal_window_start, xmax=signal_window_final, ymin=0, ymax=1,facecolor='none', edgecolor='blue', linestyle='--', lw=2,alpha=0.25,label='signal')

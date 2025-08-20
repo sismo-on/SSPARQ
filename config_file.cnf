@@ -4,7 +4,7 @@
 #
 # Author: Diogo L.O.C. (diogoloc@on.br)
 #
-# Last Date: 06/2025
+# Last Date: 08/2025
 #
 # Description:
 # This is an example of configuration file, wherein global paths and parameters
@@ -16,6 +16,7 @@
 # The parameters are divided in several sections:
 # - [paths]           : default paths to input/output folders
 # - [event]           : parameters to analyse event data
+# - [algoritm]        : parameters of Braunmiller & Pornsopin algorithm
 #
 # Before using the scripts, you should at least make sure that the paths in
 # section [paths] are consistent with your own files and folders organization.
@@ -34,22 +35,26 @@
 ## The basic directory and file layout is defined as:
 ## <SDSdir>/Year/NET/STA/CHAN.TYPE/NET.STA.LOC.CHAN.TYPE.YEAR.DAY
 
-WAVEFORM_DIR = Sample/MSEED/
+#WAVEFORM_DIR = Sample/MSEED/
+WAVEFORM_DIR = /home/enseadamartel/Documents/SISMOLOGIA/SSPARQ_OUTPUT/MSEED/
 
 ## ---------------------------
 ## Directory with the catalog file (CGMT in xml[QUAKEML])
 
-CATALOG_FILE = Sample/CATALOG/CMTSOLUTIONS_2010_2025.xml
+#CATALOG_FILE = Sample/CATALOG/CMTSOLUTIONS_2010_2025.xml
+CATALOG_FILE = /home/enseadamartel/Documents/SISMOLOGIA/SSPARQ_OUTPUT/CATALOG/CMTSOLUTIONS_2010_2025.xml
 
 ## ----------------------------
 ## Directory of the StationXML:
 
-XML_DIR = Sample/XML/
+#XML_DIR = Sample/XML/
+XML_DIR = /home/enseadamartel/Documents/SISMOLOGIA/SSPARQ_OUTPUT/XML/
 
 ## -----------------------
 ## Directory of the output (Figures and Feathers file)
 
-SSPARQ_OUTPUT = Sample/OUTPUT/
+#SSPARQ_OUTPUT = Sample/OUTPUT/
+SSPARQ_OUTPUT = /home/enseadamartel/Documents/SISMOLOGIA/SSPARQ_OUTPUT/OUTPUT/
 
 #======
 [event]
@@ -82,4 +87,28 @@ TIME_FINAL_P = 5
 ## ---------------
 ## MULTIPROCESSING
 
-num_processes = 20
+num_processes = 30
+
+#=========
+[algoritm]
+#=========
+
+## -------------------------------------------------------------
+## Minimum required similarity of vertical and radial components (default is 0.5).
+
+CVR_MIN = 0.5
+
+## --------------------------------------
+## Minimum required signal-to-noise ratio (default is 10).
+
+SNR_MIN = 10
+
+## --------------------------------------------------
+## Minimum required transverse-to-radial energy ratio (default is 0.2).
+
+TRR_MIN = 0.2
+
+## -----------------------------------------------
+## Minimum allowed radial-to-vertical energy ratio (default is 2).
+
+RVR_MIN = 2
