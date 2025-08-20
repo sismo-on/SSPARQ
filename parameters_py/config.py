@@ -146,3 +146,7 @@ TRR_MIN = config.getfloat('algoritm', 'TRR_MIN')
 ## Minimum allowed radial-to-vertical energy ratio (default is 2).
 RVR_MIN = config.getfloat('algoritm', 'RVR_MIN')
 
+## -----------------------------------------------------------------
+## Minimum number of measurements required to compute the final plot (default = 1).
+
+MIN_ORIENTATION_STATION = config.getfloat('algoritm', 'MIN_ORIENTATION_STATION')

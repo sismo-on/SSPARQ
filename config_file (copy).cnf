@@ -35,7 +35,7 @@
 ## The basic directory and file layout is defined as:
 ## <SDSdir>/Year/NET/STA/CHAN.TYPE/NET.STA.LOC.CHAN.TYPE.YEAR.DAY
 
-WAVEFORM_DIR = /media/sysop/14f7ead0-5dcb-4557-a139-55dbb404d11a/diogoloc/dados_posdoc/ON_MAR/obs_data_MSEED/
+WAVEFORM_DIR = Sample/MSEED/
 
 ## ---------------------------
 ## Directory with the catalog file (CGMT in xml[QUAKEML])
@@ -45,12 +45,12 @@ CATALOG_FILE = Sample/CATALOG/CMTSOLUTIONS_2010_2025.xml
 ## ----------------------------
 ## Directory of the StationXML:
 
-XML_DIR = /media/sysop/14f7ead0-5dcb-4557-a139-55dbb404d11a/diogoloc/dados_posdoc/ON_MAR/XML_OBS_ON/
+XML_DIR = Sample/XML/
 
 ## -----------------------
 ## Directory of the output (Figures and Feathers file)
 
-SSPARQ_OUTPUT = /media/sysop/14f7ead0-5dcb-4557-a139-55dbb404d11a/diogoloc/dados_posdoc/ON_MAR/SSPARQ/OUTPUT/
+SSPARQ_OUTPUT = Sample/OUTPUT/
 
 #======
 [event]
@@ -83,7 +83,7 @@ TIME_FINAL_P = 5
 ## ---------------
 ## MULTIPROCESSING
 
-num_processes = 12
+num_processes = 30
 
 #=========
 [algoritm]
@@ -108,8 +108,3 @@ TRR_MIN = 0.2
 ## Minimum allowed radial-to-vertical energy ratio (default is 2).
 
 RVR_MIN = 2
-
-## -----------------------------------------------------------------
-## Minimum number of measurements required to compute the final plot (default = 1).
-
-MIN_ORIENTATION_STATION = 1

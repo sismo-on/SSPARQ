@@ -33,7 +33,7 @@ from sklearn.metrics import silhouette_score
 
 # Importing SSPARQ setup:
 from parameters_py.config import (
-					WAVEFORM_DIR,CATALOG_FILE,XML_DIR,SSPARQ_OUTPUT,num_processes,TIME_FINAL_P,TIME_WINDOW
+					WAVEFORM_DIR,CATALOG_FILE,XML_DIR,SSPARQ_OUTPUT,num_processes,TIME_FINAL_P,TIME_WINDOW,MIN_ORIENTATION_STATION
 				   )
 
 # Importing SSPARQ functions:
@@ -427,7 +427,7 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
         time_all_good = df_sta[df_sta['quality'] == 'good']['evtime'].values  # Time in datetime
         time_all_stamp = df_sta[df_sta['quality'] == 'good']['evtime'].apply(lambda x: int(x.timestamp()))  # Time in Timestamp
     
-        if len(orientations_all_good) > 50:
+        if len(orientations_all_good) > MIN_ORIENTATION_STATION:
     
             # ================================= #
             # START: DBSCAN clusters estimation #
