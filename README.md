@@ -50,6 +50,18 @@ conda env create -f environment.yml
 conda activate SSPARQ
 ```
 
+## ⚙️ Configuration File ⚙️
+
+This project uses a **configuration file (.cnf)*** to define paths and parameters for the analysis. You must place at least one configuration file in the working directory where you run your scripts.
+
+The configuration file can have any name, as long as the extension is .cnf (e.g., analysis.cnf, config.cnf, myconfig.cnf, test.cnf).
+
+**Parameters are organized into sections:**
+
+- [paths]: input/output directories
+- [event]: parameters for event analysis
+- [algoritm]: Braunmiller & Pornsopin algorithm parameters
+
 ## 🏗️ Repository structure 🏗️
 
 ```plaintext
@@ -171,6 +183,7 @@ All experiments were conducted on two different setups running **Debian GNU/Linu
 - 💻 **AMD Ryzen 7 5700U** with **10 GB RAM**  
 - 💻 **AMD Ryzen 5 5600X** with **16 GB RAM**  
 - 💻 **Intel® Core™ Ultra 9** with **64 GB RAM**  
+- 💻 **13th Gen Intel® Core™ i9-13900KF** with **128 GB RAM**  
 
 📣 **Multiprocessing is implemented.**  
 

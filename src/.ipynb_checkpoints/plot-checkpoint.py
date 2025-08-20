@@ -404,7 +404,7 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
     net = net_sta[0]
     sta = net_sta[1]
 
-    colnames = ['network', 'station','evtime','SNR', 'phi', 'theta','clock_error', 'quality', 'gain_HHN', 'gain_HHE', 'gain_HHZ','event_class']
+    colnames = ['network', 'station','evtime','SNR', 'phi', 'theta','clock_error', 'quality', 'gain_HHN', 'gain_HHE', 'gain_HHZ']
     
     feather_files_lst = [pd.read_feather(i,columns=colnames) for i in glob.glob(SSPARQ_OUTPUT+'FEATHER_FILES/METRICS/'+net+'.'+sta+'/*')]
 
