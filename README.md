@@ -122,7 +122,7 @@ The configuration file can have any name, as long as the extension is .cnf (e.g.
 1. Clone this repository:
    ```bash
    git clone <repository_url>
-   cd Codes_Ocean_drones_monitoring_earthquakes_in_ultradeep_waters
+   cd SSPARQ
    ```
 2. Open the Jupyter Notebook environment:
    ```bash
