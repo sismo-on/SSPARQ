@@ -1,0 +1,7 @@
+src/__pycache__/
+.ipynb_checkpoints
+DATALESS
+MSEED/
+OUTPUT/
+SSPARQ_REPRODUCIBLE_MATERIAL/
+parameters_py/__pycache__
