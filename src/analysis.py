@@ -433,9 +433,14 @@ def calculate_metrics(input_lst):
                     if multiple_events_day:
                         files = [x for x in files if evname in x]
 
-                    file_HHE = [x for x in files if "HE." in x or "H2." in x][0]
-                    file_HHN = [x for x in files if "HN." in x or "H1." in x][0]
-                    file_HHZ = [x for x in files if "HZ." in x][0]
+                    try:
+                        file_HHE = [x for x in files if "HE." in x or "H2." in x][0]
+                        file_HHN = [x for x in files if "HN." in x or "H1." in x][0]
+                        file_HHZ = [x for x in files if "HZ." in x][0]
+                    except IndexError:
+                        #print(station)
+                        return
+
 
                     # --------
                     # Data HHE
