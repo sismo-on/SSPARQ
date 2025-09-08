@@ -680,7 +680,7 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
                     
                     output_figure_SSPARQ = SSPARQ_OUTPUT + 'FIGURES/FINAL_RESULT/'+net+'/'
                     os.makedirs(output_figure_SSPARQ, exist_ok=True)
-                    fig.savefig(output_figure_SSPARQ + f'ORIENTATION_TOTAL_{net}_{sta}.png',facecolor='w',dpi=300)
+                    fig.savefig(output_figure_SSPARQ + f'METRICS_TOTAL_{net}_{sta}.png',facecolor='w',dpi=300)
                     plt.close()
                 
                 else:
