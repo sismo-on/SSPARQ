@@ -59,7 +59,7 @@ def aic_simple(a):
 
 #-------------------------------------------------------------------------------
 
-def find_orientation(baz,SS,SZR,ERTR,ERRZ):
+def find_orientation_old(baz,SS,SZR,ERTR,ERRZ):
 
     """
     This function calculates the best back azimuth (phi) and sensor misorientation (theta) based on the
@@ -134,6 +134,88 @@ def find_orientation(baz,SS,SZR,ERTR,ERRZ):
 
     return phi,theta,SS_best,SZR_best,ERTR_best,ERRZ_best
 
+# --------------------------------------------------------------------------
+
+def find_orientation(baz, SS, SZR, ERTR, ERRZ):
+    """
+    This function calculates the best back azimuth (phi) and sensor misorientation (theta) 
+    using a hybrid approach: coarse search (10° steps) followed by Newton's method refinement.
+    """
+    
+    def cost_function(phi_deg):
+        """Cost function for a given azimuth angle in degrees"""
+        # Convert to index in the original arrays
+        idx = int(phi_deg / 0.1)  # since original resolution was 0.1°
+        idx = idx % len(SS)  # handle wrap-around
+        
+        return (SS[idx] - SZR[idx])  # Minimizing energy, maximizing similarity
+    
+    def cost_function_derivative(phi_deg):
+        """Numerical derivative of cost function"""
+        h = 0.1  # small step for derivative calculation
+        f_plus = cost_function(phi_deg + h)
+        f_minus = cost_function(phi_deg - h)
+        return (f_plus - f_minus) / (2 * h)
+    
+    def cost_function_second_derivative(phi_deg):
+        """Numerical second derivative of cost function"""
+        h = 0.1
+        f_plus = cost_function(phi_deg + h)
+        f_center = cost_function(phi_deg)
+        f_minus = cost_function(phi_deg - h)
+        return (f_plus - 2 * f_center + f_minus) / (h ** 2)
+    
+    # Step 1: Coarse search with 10° steps
+    coarse_angles = np.arange(0., 360., 10.)
+    coarse_costs = np.array([cost_function(angle) for angle in coarse_angles])
+    
+    # Find best candidate from coarse search
+    best_coarse_idx = np.argmin(coarse_costs)
+    phi_coarse = coarse_angles[best_coarse_idx]
+    
+    # Step 2: Refine using Newton's method
+    phi_refined = phi_coarse
+    max_iterations = 50
+    tolerance = 1e-6
+    
+    for i in range(max_iterations):
+        f_prime = cost_function_derivative(phi_refined)
+        f_double_prime = cost_function_second_derivative(phi_refined)
+        
+        # Avoid division by zero and ensure we're moving toward minimum
+        if abs(f_double_prime) > 1e-10:
+            delta_phi = -f_prime / f_double_prime
+        else:
+            delta_phi = -f_prime * 0.1  # fallback to gradient descent
+            
+        phi_refined += delta_phi
+        
+        # Handle wrap-around (keep in 0-360 range)
+        phi_refined = phi_refined % 360
+        
+        # Check convergence
+        if abs(delta_phi) < tolerance:
+            break
+    
+    # Step 3: Find the exact index in the original arrays
+    best_index = int(round(phi_refined / 0.1)) % len(SS)
+    
+    # Get final values
+    phi = round(phi_refined, 1)
+    theta = round(baz - phi_refined, 1)
+    
+    # Expressed as a deviation from North
+    theta = theta % 360
+    if theta > 180:
+        theta -= 360
+    
+    # Get quality metrics at best azimuth
+    SS_best = SS[best_index]
+    SZR_best = SZR[best_index]
+    ERTR_best = ERTR[best_index]
+    ERRZ_best = ERRZ[best_index]
+    
+    return phi, theta, SS_best, SZR_best, ERTR_best, ERRZ_best
 # --------------------------------------------------------------------------
 
 def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_MIN,SNR_MIN=SNR_MIN,TRR_MIN=TRR_MIN,RVR_MIN=RVR_MIN):
@@ -384,9 +466,12 @@ def calculate_metrics(input_lst):
     station_xml = op.read_inventory(XML_FILE)
     network = station_xml[0].code
     station = station_xml[0][0].code
+    location = station_xml[0][0][0].location_code
 
     # -------------------------------
     # Epicentral distance estimation:
+    # Assuming the station in same location during the whole period
+
     stlo = station_xml[-1][-1][-1].longitude
     stla = station_xml[-1][-1][-1].latitude
 
@@ -407,11 +492,11 @@ def calculate_metrics(input_lst):
             # ----------------------------
             # Check if feather file exists
 
-            output_FEATHER_FILES_METRICS = SSPARQ_OUTPUT+'FEATHER_FILES/METRICS/'+network+'.'+station+'/'
+            output_FEATHER_FILES_METRICS = SSPARQ_OUTPUT+'FEATHER_FILES/METRICS/'+network+'.'+station+'.'+location+'/'
 
-            file_feather_name = output_FEATHER_FILES_METRICS+network+'.'+station+'.'+evname+'.metrics.feather'
+            file_feather_name = output_FEATHER_FILES_METRICS+network+'.'+station+'.'+location+'.'+evname+'.metrics.feather'
 
-            station_pwd = list(Path(WAVE_DIR).rglob(network+'.'+station+'.*'+year+'.'+julian_day+'*'))
+            station_pwd = list(Path(WAVE_DIR).rglob(network+'.'+station+'.'+location+'.*'+year+'.'+julian_day+'*'))
 
             if os.path.isfile(file_feather_name):
                 pass
@@ -535,8 +620,8 @@ def calculate_metrics(input_lst):
                                     # ----------------------------------------------------------------------------------------------------
                                     # Creating a Pandas DataFrame:
 
-                                    column_info = [network,station,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['gain_HHN'],results['gain_HHE'],results['gain_HHZ'],[]]
-                                    columns_header = ['network','station','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','gain_HHN','gain_HHE','gain_HHZ','event_class']
+                                    column_info = [network,station,location,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['gain_HHN'],results['gain_HHE'],results['gain_HHZ'],[]]
+                                    columns_header = ['network','station','location','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','gain_HHN','gain_HHE','gain_HHZ','event_class']
 
                                 else:
                                     nodal_planes = moment_tensor_to_nodal_planes(moment_tensor)
@@ -545,9 +630,8 @@ def calculate_metrics(input_lst):
                                     # ----------------------------------------------------------------------------------------------------
                                     # Creating a Pandas DataFrame:
 
-                                    column_info = [network,station,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['gain_HHN'],results['gain_HHE'],results['gain_HHZ'],moment_tensor,nodal_planes,event_class]
-                                    columns_header = ['network','station','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','gain_HHN','gain_HHE','gain_HHZ','moment tensor','nodal_planes','event_class']
-
+                                    column_info = [network,station,location,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['gain_HHN'],results['gain_HHE'],results['gain_HHZ'],moment_tensor,nodal_planes,event_class]
+                                    columns_header = ['network','station','location','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','gain_HHN','gain_HHE','gain_HHZ','moment tensor','nodal_planes','event_class']
 
                                 metrics_p_wave_df = pd.DataFrame(column_info, index=columns_header).T
                                 metrics_p_wave_df['evtime'] = pd.to_datetime(metrics_p_wave_df['evtime'].apply(lambda x: x.isoformat() if isinstance(x, UTCDateTime) else x))

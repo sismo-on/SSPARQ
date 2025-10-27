@@ -13,6 +13,7 @@ import matplotlib.patheffects as path_effects
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
+from obspy import read_inventory
 from obspy.signal.rotate import rotate_ne_rt
 from obspy.taup import TauPyModel
 from obspy.imaging.beachball import beach
@@ -25,6 +26,8 @@ import pandas as pd
 from scipy.stats import circmean, circstd,gaussian_kde
 from kneed import KneeLocator
 import pyarrow.feather as feather
+
+from datetime import datetime
 
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import RobustScaler
@@ -131,7 +134,7 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
                 
     # --------------------
     # figure 
-    fig = plt.figure(figsize=(15, 7),constrained_layout=True)
+    fig = plt.figure(figsize=(20, 10),constrained_layout=True)
 
     qc_symbol = '[✔]' if df_row['quality'] == 'good' else '[✘]'
 
@@ -142,7 +145,7 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
         f"(Δ: {round(df_row['gcarc'])}° | M: {round(df_row['evmag'],1)} {df_row['evtype']} | "
         f"D: {round(df_row['evdp'])} km) \n "
         f"SNR: {df_row['SNR']} dB | BAZ: {round(df_row['baz'])}° | "
-        f"PHI: {df_row['phi']}° | theta: {df_row['theta']}° | "
+        f"PHI: {df_row['phi']}° | theta: {round(df_row['theta'],1)}° | "
         f"TI: {df_row['clock_error']}s | "
         f"GN: {df_row['gain_HHN']:.2e} | GE: {df_row['gain_HHE']:.2e}  | GZ: {df_row['gain_HHZ']:.2e}", 
         fontsize=15)    
@@ -152,7 +155,7 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
         f"(Δ: {round(df_row['gcarc'])}° | M: {round(df_row['evmag'],1)} {df_row['evtype']} | "
         f"D: {round(df_row['evdp'])} km | C: {df_row['event_class']}) \n "
         f"SNR: {df_row['SNR']} dB | BAZ: {round(df_row['baz'])}° | "
-        f"PHI: {df_row['phi']}° | theta: {df_row['theta']}° | "
+        f"PHI: {df_row['phi']}° | theta: {round(df_row['theta'],1)}° | "
         f"TI: {df_row['clock_error']}s | "
         f"GN: {df_row['gain_HHN']:.2e} | GE: {df_row['gain_HHE']:.2e}  | GZ: {df_row['gain_HHZ']:.2e}", 
         fontsize=15)  
@@ -171,7 +174,7 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
     ax1.plot(df_row['trZ_time'],new_T,'-k',lw=2,label='HHT')
     ax1.plot(trZ_signal_time,tr2,c='gray',ls='--',lw=1,label='HHE')
     ax1.axvspan(xmin=signal_window_start, xmax=signal_window_final, ymin=0, ymax=1,facecolor='none', edgecolor='blue', linestyle='--', lw=2,alpha=0.25)
-    ax1.annotate(df_row['network']+'.'+df_row['station']+'..HHT', (0.95, 0.85),xycoords='axes fraction',fontsize=15, va='center',ha='right',bbox=dict(boxstyle="round", fc="white"))
+    ax1.annotate(df_row['network']+'.'+df_row['station']+'.'+df_row['location']+'.HHT', (0.95, 0.85),xycoords='axes fraction',fontsize=15, va='center',ha='right',bbox=dict(boxstyle="round", fc="white"))
     ax1.set_xlim(-TIME_WINDOW,TIME_WINDOW)
     ax1.tick_params(axis="x", labelbottom=False)
     ax1.grid(which='major',linestyle=':')
@@ -182,7 +185,7 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
     ax2.plot(df_row['trZ_time'],new_R,'-k',lw=2,label='HHR')
     ax2.plot(trZ_signal_time,tr1,c='gray',ls='--',lw=1,label='HHN')
     ax2.axvspan(xmin=signal_window_start, xmax=signal_window_final, ymin=0, ymax=1,facecolor='none', edgecolor='blue', linestyle='--', lw=2,alpha=0.25)
-    ax2.annotate(df_row['network']+'.'+df_row['station']+'..HHR', (0.95, 0.85),xycoords='axes fraction',fontsize=15, va='center',ha='right',bbox=dict(boxstyle="round", fc="white"))
+    ax2.annotate(df_row['network']+'.'+df_row['station']+'.'+df_row['location']+'.HHR', (0.95, 0.85),xycoords='axes fraction',fontsize=15, va='center',ha='right',bbox=dict(boxstyle="round", fc="white"))
     ax2.tick_params(axis="x", labelbottom=False)
     ax2.grid(which='major',linestyle=':')
     ax2.legend(loc='lower left')
@@ -191,7 +194,8 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
     ax3 = fig.add_subplot(gs0[0, 0], sharex=ax1, sharey=ax1)
     ax3.plot(df_row['trZ_time'],df_row['trZ_data'],'-k',lw=2)
     ax3.tick_params(axis="x", labelbottom=False)
-    ax3.annotate(df_row['network']+'.'+df_row['station']+'..HHZ', (0.95, 0.85),xycoords='axes fraction',fontsize=15, va='center',ha='right',bbox=dict(boxstyle="round", fc="white"))
+    ax3.annotate(df_row['network']+'.'+df_row['station']+'.'+df_row['location']+'.HHZ', (0.95, 0.85),xycoords='axes fraction',fontsize=15, va='center',ha='right',bbox=dict(boxstyle="round", fc="white"))
+    ax3.text(0, 1.075, '[counts]', transform=ax3.transAxes, fontsize=15,va='top', ha='left')
     ax3.axvspan(xmin=signal_window_start, xmax=signal_window_final, ymin=0, ymax=1,facecolor='none', edgecolor='blue', linestyle='--', lw=2,alpha=0.25,label='signal')
     ax3.axvspan(xmin=noise_window_start, xmax=noise_window_final, ymin=0, ymax=1,facecolor='none', edgecolor='red', linestyle='--', lw=2,alpha=0.25,label='noise')
     ax3.grid(which='major',linestyle=':')
@@ -344,14 +348,14 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
         
     # ==========================================
     
-    output_figure_SSPARQ = SSPARQ_OUTPUT+'FIGURES/EARTHQUAKES/'+df_row['network']+'.'+df_row['station']+'/'
+    output_figure_SSPARQ = SSPARQ_OUTPUT+'FIGURES/EARTHQUAKES/'+df_row['network']+'.'+df_row['station']+'.'+df_row['location']+'/'
     os.makedirs(output_figure_SSPARQ,exist_ok=True)
-    fig.savefig(output_figure_SSPARQ+'METRICS_'+df_row['station']+'_'+df_row['evname']+'_'+df_row['quality']+'.png',dpi=100)
+    fig.savefig(output_figure_SSPARQ+'METRICS_'+df_row['network']+'_'+df_row['station']+'_'+df_row['location']+'_'+df_row['evname']+'_'+df_row['quality']+'.png',dpi=100)
     plt.close()
 
 # ---------------------------------------------------------------------------------------------------
 
-def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
+def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=XML_DIR):
 
     """
     Generate comprehensive station metrics visualization including orientation, clock error, 
@@ -368,8 +372,8 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
 
     Parameters:
     -----------
-    net_sta : tuple
-        A tuple containing (network_code, station_code) to identify the station.
+    net_sta_loc : tuple
+        A tuple containing (network_code, station_code, location_code) to identify the station.
     SSPARQ_OUTPUT : str, optional
         Path to the SSPARQ output directory containing the metrics feather files.
         Default is the global SSPARQ_OUTPUT variable.
@@ -381,7 +385,7 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
     Outputs:
     --------
     Saves a PNG visualization to:
-    {SSPARQ_OUTPUT}/FIGURES/FINAL_RESULT/{network_code}/METRICS_TOTAL_{network_code}_{station_code}.png
+    {SSPARQ_OUTPUT}/FIGURES/FINAL_RESULT/{network_code}/METRICS_TOTAL_{network_code}_{station_code}_{location_code}.png
 
     The visualization includes:
     - Top panel: Event count histogram by month (colored by quality/cluster)
@@ -401,18 +405,50 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
     - The figure includes statistical annotations (mean±std) for orientation clusters
     """
    
-    net = net_sta[0]
-    sta = net_sta[1]
+    net = net_sta_loc[0]
+    sta = net_sta_loc[1]
+    loc = net_sta_loc[2]
 
-    colnames = ['network', 'station','evtime','SNR', 'phi', 'theta','clock_error', 'quality', 'gain_HHN', 'gain_HHE', 'gain_HHZ']
+    # -------------
+    # Read XML file
     
-    feather_files_lst = [pd.read_feather(i,columns=colnames) for i in glob.glob(SSPARQ_OUTPUT+'FEATHER_FILES/METRICS/'+net+'.'+sta+'/*')]
+    station_xml = read_inventory(glob.glob(XML_FOLDER+net+'.'+sta+'.'+loc+'*')[0])
+
+    # -------------------------------------------
+    # Read XML file to find station north azimuth
+
+    data_xml = []
+    for stxml in station_xml[0][0]:
+        if "H1" in stxml.code or "HN" in stxml.code:
+            
+            # Expressed as a deviation from North
+            theta_component = stxml.azimuth
+            if theta_component > 180:
+                theta_component -= 360
+            
+            # end_date
+            end_date = stxml.end_date
+            if end_date is None:
+                end_date = datetime.now()
+            
+            data_xml.append({
+                'start_date': stxml.start_date,
+                'end_date': end_date,
+                'theta': theta_component
+            })
+
+    # stationXML info DataFrame
+    df_xml = pd.DataFrame(data_xml)
+
+    colnames = ['network', 'station','location','evtime','SNR', 'phi', 'theta','clock_error', 'quality', 'gain_HHN', 'gain_HHE', 'gain_HHZ']
+    
+    feather_files_lst = [pd.read_feather(i,columns=colnames) for i in glob.glob(SSPARQ_OUTPUT+'FEATHER_FILES/METRICS/'+net+'.'+sta+'.'+loc+'/*')]
 
     # Check if figure exists:
     
     output_figure_SSPARQ = SSPARQ_OUTPUT + 'FIGURES/FINAL_RESULT/'+net+'/'
     
-    if len(feather_files_lst) > 1 and os.path.isfile(output_figure_SSPARQ + f'METRICS_TOTAL_{net}_{sta}.png') == False:
+    if len(feather_files_lst) > 1 and os.path.isfile(output_figure_SSPARQ + f'METRICS_TOTAL_{net}_{sta}_{loc}.png') == False:
     
         station_df = pd.concat(feather_files_lst)
         station_df['year_month'] = station_df['evtime'].dt.to_period('M').astype(str)
@@ -502,16 +538,21 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
                     # Cria o range de meses como Periods e converte para datetime (timestamp)
                     years = pd.period_range(start=df_sta['year_month'].min(), end=df_sta['year_month'].max(), freq='M')
                     
-                    fig = plt.figure(figsize=(10, 10))
+                    fig = plt.figure(figsize=(15, 15))
                     gs = gridspec.GridSpec(4, 2, width_ratios=[10,1], height_ratios=[1,10,1,1],hspace=0.05, wspace=0.05)
                 
                     # Definindo os eixos
                     ax0 = fig.add_subplot(gs[0, 0])  #  Number of events axis
                     ax1 = fig.add_subplot(gs[1, 0],sharex=ax0)  # Orientation axis
-                    ax2 = fig.add_subplot(gs[2, 0],sharex=ax0)  # Histogram axis
-                    ax3 = fig.add_subplot(gs[3, 0],sharex=ax0)  # Time axis
+                    ax2 = fig.add_subplot(gs[2, 0],sharex=ax0)  # Clock axis
+                    ax3 = fig.add_subplot(gs[3, 0],sharex=ax0)  # Gain axis
                     ax4 = fig.add_subplot(gs[1, 1],sharey=ax1)  # KDE axis
-    
+
+                    # Plotting theta from the stationXML
+                    if not df_xml.empty:
+                        for _, row in df_xml.iterrows():
+                            ax1.plot([mdates.date2num(row['start_date']), mdates.date2num(row['end_date'])],[row['theta'], row['theta']],c='k', linewidth=2, ls='--',zorder=10)
+
                     if silhouette_score_elbow_point:
                         ax0.annotate('ss:'+str(round(silhouette_score_elbow_point,2)), (pd.to_datetime(df_sta['evtime'].values).max(), +15),fontsize=10, va='center', ha='center',bbox=dict(boxstyle="round", fc="white", ec='k', alpha=0.5))
     
@@ -589,7 +630,7 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
     
                                     ax0.bar(ye_num, len(orientations_good_cluster), color=col, width=20,zorder=10) # Plot histogram cluster good
                                     ax1.scatter([ye_num]*len(orientations_good_cluster), orientations_good_cluster, marker='.', color=col,s=snr_good_cluster*10, alpha=0.5, ec='k') # Plot orientations cluster good
-                                    ax1.annotate(f"{round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 1)}±{round(np.std(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 2)}°",(pd.to_datetime(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['evtime'].values).mean(), round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 1)),fontsize=12, va='center', ha='center',path_effects=[path_effects.Stroke(linewidth=3, foreground='white'), path_effects.Normal()])
+                                    ax1.annotate(f"{round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 1)}±{round(np.std(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 2)}°",(pd.to_datetime(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['evtime'].values).mean(), round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 1)),fontsize=12, va='center', ha='center',path_effects=[path_effects.Stroke(linewidth=3, foreground='white'), path_effects.Normal()],zorder=100)
                                     ax2.scatter([ye_num]*len(clock_error_good), clock_error_good,color=col,marker='.',edgecolor='none',alpha=0.5) # Plot clock instability cluster good
     
                                     g1 = ax3.scatter([ye_num]*len(gain_HHZ_good),np.log(gain_HHE_good/gain_HHN_good),color=col,marker='p',edgecolor='none',s=10,alpha=0.5,label='E/N')  # Plot E\N cluster good
@@ -619,10 +660,12 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
                     ax0.yaxis.set_major_locator(MultipleLocator(5))
                     ax0.tick_params(axis="x", which='both', labelbottom=False, labeltop=False, rotation=30)
                     ax0.tick_params(axis="y", which='both', labelright=False, labelleft=True, left=True, right=True)
-                    ax0.set_title(f'{net}.{sta}', fontsize=20)
+                    ax0.set_title(f'{net}.{sta}.{loc}', fontsize=20)
                     ax0.set_ylim(0, 20)
                     ax0.set_ylabel("n")
                     ax0.grid(True)
+                    ax0.yaxis.set_major_locator(MultipleLocator(10))
+                    ax0.yaxis.set_minor_locator(MultipleLocator(5))
                     ax0.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
                     ax0.xaxis.set_major_locator(mdates.MonthLocator(interval=18))
                     ax0.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
@@ -680,7 +723,7 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
                     
                     output_figure_SSPARQ = SSPARQ_OUTPUT + 'FIGURES/FINAL_RESULT/'+net+'/'
                     os.makedirs(output_figure_SSPARQ, exist_ok=True)
-                    fig.savefig(output_figure_SSPARQ + f'METRICS_TOTAL_{net}_{sta}.png',facecolor='w',dpi=300)
+                    fig.savefig(output_figure_SSPARQ + f'METRICS_TOTAL_{net}_{sta}_{loc}.png',facecolor='w',dpi=300)
                     plt.close()
                 
                 else:
@@ -701,7 +744,7 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
                     # Creating mounth range datetime (timestamp) Periods
                     years = pd.period_range(start=df_sta['year_month'].min(), end=df_sta['year_month'].max(), freq='M')
                     
-                    fig = plt.figure(figsize=(10, 10))
+                    fig = plt.figure(figsize=(15, 15))
                     gs = gridspec.GridSpec(4, 2, width_ratios=[10,1], height_ratios=[1,10,1,1],hspace=0.05, wspace=0.05)
                 
                 
@@ -712,6 +755,12 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
                     ax3 = fig.add_subplot(gs[3, 0],sharex=ax0)  # Time axis
                     ax4 = fig.add_subplot(gs[1, 1],sharey=ax1)  # KDE axis
                     
+                    # Plotting theta from the stationXML
+
+                    if not df_xml.empty:
+                        for _, row in df_xml.iterrows():
+                            ax1.plot([mdates.date2num(row['start_date']), mdates.date2num(row['end_date'])],[row['theta'], row['theta']],c='k', linewidth=2, ls='--',zorder=2)
+
                     if silhouette_score_elbow_point:
                         ax0.annotate('ss:'+str(round(silhouette_score_elbow_point,2)), (pd.to_datetime(df_sta['evtime'].values).max(), +15),fontsize=10, va='center', ha='center',bbox=dict(boxstyle="round", fc="white", ec='k', alpha=0.5))
                     
@@ -817,7 +866,7 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
                             g2 = ax3.scatter(ye_num,np.log(gain_HHE_good/gain_HHZ_good),c='#9e0039',marker='>',edgecolor='none',s=10,alpha=0.5,label='E/Z') # Plot E/Z good
                             g3 = ax3.scatter(ye_num,np.log(gain_HHN_good/gain_HHZ_good),c='#9e0039',marker='^',edgecolor='none',s=10,alpha=0.5,label='N/Z') # Plot N/Z good
                             
-                    ax1.annotate(f"{round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 1)}±{round(np.std(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 2)}°",(pd.to_datetime(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['evtime'].values).mean(), round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 1)),fontsize=12, va='center', ha='center',path_effects=[path_effects.Stroke(linewidth=3, foreground='white'), path_effects.Normal()])
+                    ax1.annotate(f"{round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 1)}±{round(np.std(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 2)}°",(pd.to_datetime(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['evtime'].values).mean(), round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 1)),fontsize=12, va='center', ha='center',path_effects=[path_effects.Stroke(linewidth=3, foreground='white'), path_effects.Normal()],zorder=100)
                            
                     label_handles = ['bd: '+str(sum(label_handles_bad)),'ol: '+str(sum(label_handles_out)),'g1: '+str(sum(label_handles_dat))]
                     alphas = [0.05,0.25,0.75] 
@@ -842,10 +891,12 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
                     ax0.yaxis.set_major_locator(MultipleLocator(5))
                     ax0.tick_params(axis="x", which='both', labelbottom=False, labeltop=False, rotation=30)
                     ax0.tick_params(axis="y", which='both', labelright=False, labelleft=True, left=True, right=True)
-                    ax0.set_title(f'{net}.{sta}', fontsize=20)
+                    ax0.set_title(f'{net}.{sta}.{loc}', fontsize=20)
                     ax0.set_ylim(0, 20)
                     ax0.set_ylabel("n")
                     ax0.grid(True)
+                    ax0.yaxis.set_major_locator(MultipleLocator(10))
+                    ax0.yaxis.set_minor_locator(MultipleLocator(5))
                     ax0.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
                     ax0.xaxis.set_major_locator(mdates.MonthLocator(interval=18))
                     ax0.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
@@ -901,7 +952,7 @@ def station_overview_metrics(net_sta,SSPARQ_OUTPUT=SSPARQ_OUTPUT):
                     # Salvando a figura
                     output_figure_SSPARQ = SSPARQ_OUTPUT + 'FIGURES/FINAL_RESULT/'+net+'/'
                     os.makedirs(output_figure_SSPARQ, exist_ok=True)
-                    fig.savefig(output_figure_SSPARQ + f'METRICS_TOTAL_{net}_{sta}.png',facecolor='w',dpi=300)
+                    fig.savefig(output_figure_SSPARQ + f'METRICS_TOTAL_{net}_{sta}_{loc}.png',facecolor='w',dpi=300)
                     plt.close()
         else:
             print('station:',sta,'size:',len(df_sta))
