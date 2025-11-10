@@ -36,7 +36,8 @@ from sklearn.metrics import silhouette_score
 
 # Importing SSPARQ setup:
 from parameters_py.config import (
-					WAVEFORM_DIR,CATALOG_FILE,XML_DIR,SSPARQ_OUTPUT,num_processes,TIME_FINAL_P,TIME_WINDOW,MIN_ORIENTATION_STATION
+					WAVEFORM_DIR,CATALOG_FILE,XML_DIR,SSPARQ_OUTPUT,num_processes,TIME_FINAL_P,TIME_WINDOW,MIN_ORIENTATION_STATION,
+                    PER_SAMPLES,EPSILON_LOW,EPSILON_UP
 				   )
 
 # Importing SSPARQ functions:
@@ -46,7 +47,7 @@ from src.utils import (
 				   )
 
 # Sets the global font size
-plt.rcParams.update({'font.size': 14}) 
+plt.rcParams.update({'font.size': 20}) 
 
 # --------- #
 # Functions #
@@ -350,105 +351,103 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
     
     output_figure_SSPARQ = SSPARQ_OUTPUT+'FIGURES/EARTHQUAKES/'+df_row['network']+'.'+df_row['station']+'.'+df_row['location']+'/'
     os.makedirs(output_figure_SSPARQ,exist_ok=True)
-    fig.savefig(output_figure_SSPARQ+'METRICS_'+df_row['network']+'_'+df_row['station']+'_'+df_row['location']+'_'+df_row['evname']+'_'+df_row['quality']+'.png',dpi=100)
+    fig.savefig(output_figure_SSPARQ+'METRICS_'+df_row['network']+'_'+df_row['station']+'_'+df_row['location']+'_'+df_row['evname']+'_'+df_row['quality']+'.png',dpi=100,bbox_inches='tight', pad_inches=0)
     plt.close()
 
 # ---------------------------------------------------------------------------------------------------
 
 def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=XML_DIR):
 
-    """
-    Generate comprehensive station metrics visualization including orientation, clock error, 
-    and gain analysis over time using DBSCAN clustering or quartile-based outlier detection.
-
-    This function processes seismic station data to create a multi-panel visualization showing:
-    - Event counts and orientation angles over time
-    - Clock error measurements
-    - Gain ratios between components
-    - Kernel density estimation of orientations
+        """
+        Generate comprehensive station metrics visualization including orientation, clock error, 
+        and gain analysis over time using DBSCAN clustering or quartile-based outlier detection.
     
-    The analysis uses DBSCAN clustering only when the silhouette score (measuring cluster separation) exceeds 0.22; 
-    otherwise, it defaults to quartile-based outlier detection.
-
-    Parameters:
-    -----------
-    net_sta_loc : tuple
-        A tuple containing (network_code, station_code, location_code) to identify the station.
-    SSPARQ_OUTPUT : str, optional
-        Path to the SSPARQ output directory containing the metrics feather files.
-        Default is the global SSPARQ_OUTPUT variable.
-
-    Returns:
-    --------
-    None
+        This function processes seismic station data to create a multi-panel visualization showing:
+        - Event counts and orientation angles over time
+        - Clock error measurements
+        - Gain ratios between components
+        - Kernel density estimation of orientations
+        
+        The analysis uses DBSCAN clustering only when the silhouette score (measuring cluster separation) exceeds 0.22; 
+        otherwise, it defaults to quartile-based outlier detection.
     
-    Outputs:
-    --------
-    Saves a PNG visualization to:
-    {SSPARQ_OUTPUT}/FIGURES/FINAL_RESULT/{network_code}/METRICS_TOTAL_{network_code}_{station_code}_{location_code}.png
-
-    The visualization includes:
-    - Top panel: Event count histogram by month (colored by quality/cluster)
-    - Middle panel: Orientation angle scatter plot with SNR scaling
-    - Lower middle panel: Clock error measurements
-    - Bottom panel: Gain ratio comparisons (E/N, E/Z, N/Z)
-    - Right panel: Kernel density estimate of orientation angles
-
-    Notes:
-    ------
-    - The function skips stations that already have output figures
-    - DBSCAN parameters are automatically tuned based on data characteristics
-    - Color coding distinguishes between:
-        * Good quality clusters (spectral colors)
-        * Outliers (purple)
-        * Bad quality data (gray)
-    - The figure includes statistical annotations (mean±std) for orientation clusters
-    """
-   
-    net = net_sta_loc[0]
-    sta = net_sta_loc[1]
-    loc = net_sta_loc[2]
-
-    # -------------
-    # Read XML file
+        Parameters:
+        -----------
+        net_sta_loc : tuple
+            A tuple containing (network_code, station_code, location_code) to identify the station.
+        SSPARQ_OUTPUT : str, optional
+            Path to the SSPARQ output directory containing the metrics feather files.
+            Default is the global SSPARQ_OUTPUT variable.
     
-    station_xml = read_inventory(glob.glob(XML_FOLDER+net+'.'+sta+'.'+loc+'*')[0])
-
-    # -------------------------------------------
-    # Read XML file to find station north azimuth
-
-    data_xml = []
-    for stxml in station_xml[0][0]:
-        if "H1" in stxml.code or "HN" in stxml.code:
-            
-            # Expressed as a deviation from North
-            theta_component = stxml.azimuth
-            if theta_component > 180:
-                theta_component -= 360
-            
-            # end_date
-            end_date = stxml.end_date
-            if end_date is None:
-                end_date = datetime.now()
-            
-            data_xml.append({
-                'start_date': stxml.start_date,
-                'end_date': end_date,
-                'theta': theta_component
-            })
-
-    # stationXML info DataFrame
-    df_xml = pd.DataFrame(data_xml)
-
-    colnames = ['network', 'station','location','evtime','SNR', 'phi', 'theta','clock_error', 'quality', 'gain_HHN', 'gain_HHE', 'gain_HHZ']
+        Returns:
+        --------
+        None
+        
+        Outputs:
+        --------
+        Saves a PNG visualization to:
+        {SSPARQ_OUTPUT}/FIGURES/FINAL_RESULT/{network_code}/METRICS_TOTAL_{network_code}_{station_code}_{location_code}.png
     
-    feather_files_lst = [pd.read_feather(i,columns=colnames) for i in glob.glob(SSPARQ_OUTPUT+'FEATHER_FILES/METRICS/'+net+'.'+sta+'.'+loc+'/*')]
-
-    # Check if figure exists:
+        The visualization includes:
+        - Top panel: Event count histogram by month (colored by quality/cluster)
+        - Middle panel: Orientation angle scatter plot with SNR scaling
+        - Lower middle panel: Clock error measurements
+        - Bottom panel: Gain ratio comparisons (E/N, E/Z, N/Z)
+        - Right panel: Kernel density estimate of orientation angles
     
-    output_figure_SSPARQ = SSPARQ_OUTPUT + 'FIGURES/FINAL_RESULT/'+net+'/'
+        Notes:
+        ------
+        - The function skips stations that already have output figures
+        - DBSCAN parameters are automatically tuned based on data characteristics
+        - Color coding distinguishes between:
+            * Good quality clusters (spectral colors)
+            * Outliers (purple)
+            * Bad quality data (gray)
+        - The figure includes statistical annotations (mean±std) for orientation clusters
+        """
+       
+        net = net_sta_loc[0]
+        sta = net_sta_loc[1]
+        loc = net_sta_loc[2]
     
-    if len(feather_files_lst) > 1 and os.path.isfile(output_figure_SSPARQ + f'METRICS_TOTAL_{net}_{sta}_{loc}.png') == False:
+        # -------------
+        # Read XML file
+        
+        station_xml = read_inventory(glob.glob(XML_FOLDER+net+'.'+sta+'.'+loc+'*')[0])
+    
+        # -------------------------------------------
+        # Read XML file to find station north azimuth
+    
+        data_xml = []
+        for stxml in station_xml[0][0]:
+            if "H1" in stxml.code or "HN" in stxml.code:
+                
+                # Expressed as a deviation from North
+                theta_component = stxml.azimuth
+                if theta_component > 180:
+                    theta_component -= 360
+                
+                # end_date
+                end_date = stxml.end_date
+                if end_date is None:
+                    end_date = datetime.now()
+                
+                data_xml.append({
+                    'start_date': stxml.start_date,
+                    'end_date': end_date,
+                    'theta': theta_component
+                })
+    
+        # stationXML info DataFrame
+        df_xml = pd.DataFrame(data_xml)
+    
+        colnames = ['network', 'station','location','evtime','SNR', 'phi', 'theta','clock_error', 'quality', 'gain_HHN', 'gain_HHE', 'gain_HHZ']
+        
+        feather_files_lst = [pd.read_feather(i,columns=colnames) for i in glob.glob(SSPARQ_OUTPUT+'FEATHER_FILES/METRICS/'+net+'.'+sta+'.'+loc+'/*')]
+    
+        # Create figure path:
+        
+        output_figure_SSPARQ = SSPARQ_OUTPUT + 'FIGURES/FINAL_RESULT/'+net+'/'
     
         station_df = pd.concat(feather_files_lst)
         station_df['year_month'] = station_df['evtime'].dt.to_period('M').astype(str)
@@ -480,8 +479,8 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
     
             # The size of the radius is specified by the distance threshold parameter (epsilon)
             
-            eps_range = np.arange(0.23,0.28,0.005)
-            per_samples = 20 # percentage of total de samples per group
+            eps_range = np.arange(EPSILON_LOW,EPSILON_UP,0.005)
+            per_samples = PER_SAMPLES # percentage of total de samples per group
     
             # -----------------------------
             # Silhouette DBSCAN estimation
@@ -554,7 +553,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                             ax1.plot([mdates.date2num(row['start_date']), mdates.date2num(row['end_date'])],[row['theta'], row['theta']],c='k', linewidth=2, ls='--',zorder=10)
 
                     if silhouette_score_elbow_point:
-                        ax0.annotate('ss:'+str(round(silhouette_score_elbow_point,2)), (pd.to_datetime(df_sta['evtime'].values).max(), +15),fontsize=10, va='center', ha='center',bbox=dict(boxstyle="round", fc="white", ec='k', alpha=0.5))
+                        ax0.annotate('ss:'+str(round(silhouette_score_elbow_point,2)), (pd.to_datetime(df_sta['evtime'].values).max(), +15),fontsize=15, va='center', ha='center',bbox=dict(boxstyle="round", fc="white", ec='k', alpha=0.5))
     
                     for ye in years:
                         # Filtering according to Period (year_month)
@@ -580,7 +579,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
     
                             clock_error_bad = df_sta_year[df_sta_year['quality'] == 'bad']['clock_error'].values # Clock instability
     
-                            ax2.scatter([ye_num]*len(clock_error_bad), clock_error_bad,color='gray',marker='.',edgecolor='none',alpha=0.1)
+                            ax2.scatter([ye_num]*len(clock_error_bad), clock_error_bad,color='gray',marker='.',edgecolor='none',alpha=0.25)
     
                             # gain plot #
     
@@ -604,7 +603,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                             ax1.scatter([ye_num]*len(orientations_bad), orientations_bad, marker='.', c='gray',s=snr_bad*10, alpha=0.05, ec='k', label='bad') # Plot orientations bad
     
                             clock_error_bad = df_sta_year[df_sta_year['quality'] == 'bad']['clock_error'].values# Clock instability bad
-                            ax2.scatter([ye_num]*len(clock_error_bad), clock_error_bad,c='gray',marker='.',edgecolor='none',alpha=0.1) # Plot clock bad
+                            ax2.scatter([ye_num]*len(clock_error_bad), clock_error_bad,c='gray',marker='.',edgecolor='none',alpha=0.25) # Plot clock bad
     
                             for uni,col in zip(unique_labels,colors):
                                 orientations_good_cluster = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == uni)]['theta'].values # Orientations cluster good
@@ -630,7 +629,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
     
                                     ax0.bar(ye_num, len(orientations_good_cluster), color=col, width=20,zorder=10) # Plot histogram cluster good
                                     ax1.scatter([ye_num]*len(orientations_good_cluster), orientations_good_cluster, marker='.', color=col,s=snr_good_cluster*10, alpha=0.5, ec='k') # Plot orientations cluster good
-                                    ax1.annotate(f"{round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 1)}±{round(np.std(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 2)}°",(pd.to_datetime(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['evtime'].values).mean(), round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 1)),fontsize=12, va='center', ha='center',path_effects=[path_effects.Stroke(linewidth=3, foreground='white'), path_effects.Normal()],zorder=100)
+                                    ax1.annotate(f"{round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 1)}±{round(np.std(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 2)}°",(pd.to_datetime(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['evtime'].values).mean(), round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 1)),fontsize=20, va='center', ha='center',path_effects=[path_effects.Stroke(linewidth=3, foreground='white'), path_effects.Normal()],zorder=100)
                                     ax2.scatter([ye_num]*len(clock_error_good), clock_error_good,color=col,marker='.',edgecolor='none',alpha=0.5) # Plot clock instability cluster good
     
                                     g1 = ax3.scatter([ye_num]*len(gain_HHZ_good),np.log(gain_HHE_good/gain_HHN_good),color=col,marker='p',edgecolor='none',s=10,alpha=0.5,label='E/N')  # Plot E\N cluster good
@@ -644,7 +643,8 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                     
                     # Personalised handles
                     handles = [Line2D([0], [0], marker='o', color='w', label=grupo,markerfacecolor=cor,markeredgecolor='k',markersize=8) for grupo, cor in zip(label_dbscan_lst_end, colors)]
-    
+                    handles += [Line2D([0], [0], c='k', linewidth=2, ls='--', label='θ(XML)')]
+
                     # ------------------------------ #
                     # Kernel density estimation plot #
                     # ------------------------------ #
@@ -723,7 +723,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                     
                     output_figure_SSPARQ = SSPARQ_OUTPUT + 'FIGURES/FINAL_RESULT/'+net+'/'
                     os.makedirs(output_figure_SSPARQ, exist_ok=True)
-                    fig.savefig(output_figure_SSPARQ + f'METRICS_TOTAL_{net}_{sta}_{loc}.png',facecolor='w',dpi=300)
+                    fig.savefig(output_figure_SSPARQ + f'METRICS_TOTAL_{net}_{sta}_{loc}.png',facecolor='w',dpi=300,bbox_inches='tight', pad_inches=0)
                     plt.close()
                 
                 else:
@@ -791,7 +791,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
     
                             clock_error_bad = df_sta_year[df_sta_year['quality'] == 'bad']['clock_error'].values # Clock instability
     
-                            ax2.scatter([ye_num]*len(clock_error_bad), clock_error_bad,c='gray',marker='.',edgecolor='none',alpha=0.1) # Plot clock instability bad
+                            ax2.scatter([ye_num]*len(clock_error_bad), clock_error_bad,c='gray',marker='.',edgecolor='none',alpha=0.25) # Plot clock instability bad
     
                             # gain plot #
     
@@ -838,8 +838,8 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                             clock_error_out = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == -1)]['clock_error'].values # Clock instability out
                             clock_error_bad = df_sta_year[(df_sta_year['quality'] == 'bad')]['clock_error'].values # Clock instability bad
                             
-                            ax2.scatter([ye_num]*len(clock_error_bad), clock_error_bad,c='gray',marker='.',edgecolor='none',alpha=0.1) # Plot clock instability bad
-                            ax2.scatter([ye_num]*len(clock_error_out), clock_error_out,c='mediumpurple',marker='.',edgecolor='none',alpha=0.1) # Plot clock instability out
+                            ax2.scatter([ye_num]*len(clock_error_bad), clock_error_bad,c='gray',marker='.',edgecolor='none',alpha=0.25) # Plot clock instability bad
+                            ax2.scatter([ye_num]*len(clock_error_out), clock_error_out,c='mediumpurple',marker='.',edgecolor='none',alpha=0.25) # Plot clock instability out
                             ax2.scatter([ye_num]*len(clock_error_good), clock_error_good,c='#9e0039',marker='.',edgecolor='none',alpha=0.5) # Plot clock instability out
     
                             gain_HHE_bad = df_sta_year[df_sta_year['quality'] == 'bad']['gain_HHE'].values.mean() # Gain HHE bad
@@ -866,7 +866,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                             g2 = ax3.scatter(ye_num,np.log(gain_HHE_good/gain_HHZ_good),c='#9e0039',marker='>',edgecolor='none',s=10,alpha=0.5,label='E/Z') # Plot E/Z good
                             g3 = ax3.scatter(ye_num,np.log(gain_HHN_good/gain_HHZ_good),c='#9e0039',marker='^',edgecolor='none',s=10,alpha=0.5,label='N/Z') # Plot N/Z good
                             
-                    ax1.annotate(f"{round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 1)}±{round(np.std(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 2)}°",(pd.to_datetime(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['evtime'].values).mean(), round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 1)),fontsize=12, va='center', ha='center',path_effects=[path_effects.Stroke(linewidth=3, foreground='white'), path_effects.Normal()],zorder=100)
+                    ax1.annotate(f"{round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 1)}±{round(np.std(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 2)}°",(pd.to_datetime(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['evtime'].values).mean(), round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 1)),fontsize=20, va='center', ha='center',path_effects=[path_effects.Stroke(linewidth=3, foreground='white'), path_effects.Normal()],zorder=100)
                            
                     label_handles = ['bd: '+str(sum(label_handles_bad)),'ol: '+str(sum(label_handles_out)),'g1: '+str(sum(label_handles_dat))]
                     alphas = [0.05,0.25,0.75] 
@@ -875,7 +875,8 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                     
                     # Personalised handles
                     handles = [Line2D([0], [0], marker='o',color='w', label=grupo,markerfacecolor=cor,markeredgecolor='k',markersize=8) for grupo, cor in zip(label_handles, colors_with_alpha)]
-    
+                    handles.append(Line2D([0], [0], c='k', linewidth=2, ls='--', label='θ(XML)'))
+                    
                     # ------------------------------ #
                     # Kernel density estimation plot #
                     # ------------------------------ #
@@ -952,7 +953,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                     # Salvando a figura
                     output_figure_SSPARQ = SSPARQ_OUTPUT + 'FIGURES/FINAL_RESULT/'+net+'/'
                     os.makedirs(output_figure_SSPARQ, exist_ok=True)
-                    fig.savefig(output_figure_SSPARQ + f'METRICS_TOTAL_{net}_{sta}_{loc}.png',facecolor='w',dpi=300)
+                    fig.savefig(output_figure_SSPARQ + f'METRICS_TOTAL_{net}_{sta}_{loc}.png',facecolor='w',dpi=300,bbox_inches='tight', pad_inches=0)
                     plt.close()
         else:
             print('station:',sta,'size:',len(df_sta))

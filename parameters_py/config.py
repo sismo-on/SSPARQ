@@ -150,3 +150,41 @@ RVR_MIN = config.getfloat('algoritm', 'RVR_MIN')
 ## Minimum number of measurements required to compute the final plot (default = 1).
 
 MIN_ORIENTATION_STATION = config.getfloat('algoritm', 'MIN_ORIENTATION_STATION')
+
+## -----------------------------------------------------------------------
+## DBSCAN CLUSTERING PARAMETERS
+## -----------------------------------------------------------------------
+## This section defines the main configuration parameters used in the
+## DBSCAN (Density-Based Spatial Clustering of Applications with Noise)
+## algorithm. DBSCAN identifies clusters based on the density of points
+## in the feature space, requiring two key parameters: `epsilon` and 
+## `min_samples`. The configuration below sets the search limits and 
+## scaling conditions for cluster estimation.
+## 
+## 
+## Percentage of total samples per group (default = 20)
+## Defines the fraction of total data points required to
+## form a dense region. Used to compute the `min_samples`
+## parameter internally, as:
+##     min_samples = total_samples * (PER_SAMPLES / 100)
+## Larger values increase the density requirement, making
+## clusters harder to form and increasing the number of
+## points labeled as noise.
+
+PER_SAMPLES = config.getfloat('algoritm', 'PER_SAMPLES') 
+
+## -----------------------------------------------------------------------
+## Epsilon parameter range (distance threshold)
+## The `epsilon` value defines the neighborhood radius —
+## the maximum distance between two samples for them to be
+## considered part of the same cluster.
+## Smaller epsilon values generate more fragmented clusters,
+## while larger ones merge nearby clusters into broader groups.
+## These limits are used to scan the parameter space and 
+## identify the most suitable value for the dataset.
+##
+## EPSILON_LOW  - lower bound of the epsilon range  (default = 0.2)
+## EPSILON_UP   - upper bound of the epsilon range  (default = 0.3)
+
+EPSILON_LOW = config.getfloat('algoritm', 'EPSILON_LOW') 
+EPSILON_UP  = config.getfloat('algoritm', 'EPSILON_UP') 
