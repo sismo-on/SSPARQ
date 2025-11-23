@@ -238,10 +238,10 @@ def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_
             A NumPy array containing the transverse-to-radial energy ratios for each azimuth tested, evaluating the amount of transverse energy relative to radial energy.
 
         - 'max_value_HHR_N' : float
-            The gain (amplification factor) of radial maximum amplitude of the North-South (HHN) component.
+            The sensitivity of radial maximum amplitude of the North-South (HHN) component.
 
         - 'max_value_HHR_E' : float
-            The gain (amplification factor) of radial maximum amplitude of the East-West (HHE) component.
+            The sensitivity of radial maximum amplitude of the East-West (HHE) component.
 
     Notes:
     ------
@@ -290,17 +290,17 @@ def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_
 
     phi,theta,SS_best,SZR_best,ERTR_best,ERRZ_best = find_orientation(baz,signal_strength,similarity_ZR,energy_ratio_TR,energy_ratio_RZ)
 
-    # Estimating: instrument gain HHN
+    # Estimating: instrument sensitivity HHN
     new_R_N, new_T_N = rotate_ne_rt(tr1, tr2, phi)
 
     max_value_HHR_N = np.max(abs(new_R_N))
 
-    # Estimating: instrument gain HHE
+    # Estimating: instrument sensitivity HHE
     new_R_E, new_T_E = rotate_ne_rt(tr2, tr1, adjust_baz_for_ZEN(phi))
 
     max_value_HHR_E = np.max(abs(new_R_E))
 
-    # Estimating: instrument gain HHZ
+    # Estimating: instrument sensitivity HHZ
 
     max_value_HHZ = np.max(abs(trZ))
 
@@ -325,9 +325,9 @@ def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_
         'similarity_ZR': similarity_ZR,
         'energy_ratio_TR': energy_ratio_TR,
         'energy_ratio_RZ': energy_ratio_RZ,
-        'gain_HHN': max_value_HHR_N,
-        'gain_HHE': max_value_HHR_E,
-        'gain_HHZ': max_value_HHZ,
+        'sensitivity_HHN': max_value_HHR_N,
+        'sensitivity_HHE': max_value_HHR_E,
+        'sensitivity_HHZ': max_value_HHZ,
     }
 
     return results
@@ -543,8 +543,8 @@ def calculate_metrics(input_lst):
                                     # ----------------------------------------------------------------------------------------------------
                                     # Creating a Pandas DataFrame:
 
-                                    column_info = [network,station,location,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['gain_HHN'],results['gain_HHE'],results['gain_HHZ'],[]]
-                                    columns_header = ['network','station','location','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','gain_HHN','gain_HHE','gain_HHZ','event_class']
+                                    column_info = [network,station,location,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['sensitivity_HHN'],results['sensitivity_HHE'],results['sensitivity_HHZ'],[]]
+                                    columns_header = ['network','station','location','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','sensitivity_HHN','sensitivity_HHE','sensitivity_HHZ','event_class']
 
                                 else:
                                     nodal_planes = moment_tensor_to_nodal_planes(moment_tensor)
@@ -553,8 +553,8 @@ def calculate_metrics(input_lst):
                                     # ----------------------------------------------------------------------------------------------------
                                     # Creating a Pandas DataFrame:
 
-                                    column_info = [network,station,location,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['gain_HHN'],results['gain_HHE'],results['gain_HHZ'],moment_tensor,nodal_planes,event_class]
-                                    columns_header = ['network','station','location','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','gain_HHN','gain_HHE','gain_HHZ','moment tensor','nodal_planes','event_class']
+                                    column_info = [network,station,location,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['sensitivity_HHN'],results['sensitivity_HHE'],results['sensitivity_HHZ'],moment_tensor,nodal_planes,event_class]
+                                    columns_header = ['network','station','location','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','sensitivity_HHN','sensitivity_HHE','sensitivity_HHZ','moment tensor','nodal_planes','event_class']
 
                                 metrics_p_wave_df = pd.DataFrame(column_info, index=columns_header).T
                                 metrics_p_wave_df['evtime'] = pd.to_datetime(metrics_p_wave_df['evtime'].apply(lambda x: x.isoformat() if isinstance(x, UTCDateTime) else x))

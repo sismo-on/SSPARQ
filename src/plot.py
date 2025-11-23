@@ -37,7 +37,7 @@ from sklearn.metrics import silhouette_score
 # Importing SSPARQ setup:
 from parameters_py.config import (
 					WAVEFORM_DIR,CATALOG_FILE,XML_DIR,SSPARQ_OUTPUT,num_processes,TIME_FINAL_P,TIME_WINDOW,MIN_ORIENTATION_STATION,
-                    PER_SAMPLES,EPSILON_LOW,EPSILON_UP
+                    PER_SAMPLES,EPSILON_LOW,EPSILON_UP,MIN_SILHOUETTE_SCORE
 				   )
 
 # Importing SSPARQ functions:
@@ -135,31 +135,31 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
                 
     # --------------------
     # figure 
-    fig = plt.figure(figsize=(20, 10),constrained_layout=True)
+    fig = plt.figure(figsize=(30, 15),constrained_layout=True)
 
     qc_symbol = '[✔]' if df_row['quality'] == 'good' else '[✘]'
 
     if not df_row.get('event_class'):
 
         fig.suptitle(
-        f"{qc_symbol} Evento: {df_row['evname']} "
+        f"{qc_symbol} Event: {df_row['evname']} "
         f"(Δ: {round(df_row['gcarc'])}° | M: {round(df_row['evmag'],1)} {df_row['evtype']} | "
         f"D: {round(df_row['evdp'])} km) \n "
         f"SNR: {df_row['SNR']} dB | BAZ: {round(df_row['baz'])}° | "
         f"PHI: {df_row['phi']}° | theta: {round(df_row['theta'],1)}° | "
         f"TI: {df_row['clock_error']}s | "
-        f"GN: {df_row['gain_HHN']:.2e} | GE: {df_row['gain_HHE']:.2e}  | GZ: {df_row['gain_HHZ']:.2e}", 
-        fontsize=15)    
+        f"SN: {df_row['sensitivity_HHN']:.2e} | SE: {df_row['sensitivity_HHE']:.2e}  | SZ: {df_row['sensitivity_HHZ']:.2e}", 
+        fontsize=20)    
     else:
         fig.suptitle(
-        f"{qc_symbol} Evento: {df_row['evname']} "
+        f"{qc_symbol} Event: {df_row['evname']} "
         f"(Δ: {round(df_row['gcarc'])}° | M: {round(df_row['evmag'],1)} {df_row['evtype']} | "
         f"D: {round(df_row['evdp'])} km | C: {df_row['event_class']}) \n "
         f"SNR: {df_row['SNR']} dB | BAZ: {round(df_row['baz'])}° | "
         f"PHI: {df_row['phi']}° | theta: {round(df_row['theta'],1)}° | "
         f"TI: {df_row['clock_error']}s | "
-        f"GN: {df_row['gain_HHN']:.2e} | GE: {df_row['gain_HHE']:.2e}  | GZ: {df_row['gain_HHZ']:.2e}", 
-        fontsize=15)  
+        f"SN: {df_row['sensitivity_HHN']:.2e} | SE: {df_row['sensitivity_HHE']:.2e}  | SZ: {df_row['sensitivity_HHZ']:.2e}", 
+        fontsize=20)  
         
     # creating grid
     gs = fig.add_gridspec(1, 2,width_ratios=[5,1])
@@ -196,7 +196,7 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
     ax3.plot(df_row['trZ_time'],df_row['trZ_data'],'-k',lw=2)
     ax3.tick_params(axis="x", labelbottom=False)
     ax3.annotate(df_row['network']+'.'+df_row['station']+'.'+df_row['location']+'.HHZ', (0.95, 0.85),xycoords='axes fraction',fontsize=15, va='center',ha='right',bbox=dict(boxstyle="round", fc="white"))
-    ax3.text(0, 1.075, '[counts]', transform=ax3.transAxes, fontsize=15,va='top', ha='left')
+    ax3.text(0, 1.1, '[counts]', transform=ax3.transAxes, fontsize=15,va='top', ha='left')
     ax3.axvspan(xmin=signal_window_start, xmax=signal_window_final, ymin=0, ymax=1,facecolor='none', edgecolor='blue', linestyle='--', lw=2,alpha=0.25,label='signal')
     ax3.axvspan(xmin=noise_window_start, xmax=noise_window_final, ymin=0, ymax=1,facecolor='none', edgecolor='red', linestyle='--', lw=2,alpha=0.25,label='noise')
     ax3.grid(which='major',linestyle=':')
@@ -282,8 +282,6 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
     mt = df_row.get('moment tensor')
 
     if mt is not None and len(mt):
-    # continue com o plot
-    #if df_row.get('moment tensor'):
 
         # ===================================================================================
         # focal mechanism (https://docs.obspy.org/tutorial/code_snippets/beachball_plot.html)
@@ -360,12 +358,12 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
 
         """
         Generate comprehensive station metrics visualization including orientation, clock error, 
-        and gain analysis over time using DBSCAN clustering or quartile-based outlier detection.
+        and sensitivity analysis over time using DBSCAN clustering or quartile-based outlier detection.
     
         This function processes seismic station data to create a multi-panel visualization showing:
         - Event counts and orientation angles over time
         - Clock error measurements
-        - Gain ratios between components
+        - Sensitivity ratios between components
         - Kernel density estimation of orientations
         
         The analysis uses DBSCAN clustering only when the silhouette score (measuring cluster separation) exceeds 0.22; 
@@ -392,7 +390,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
         - Top panel: Event count histogram by month (colored by quality/cluster)
         - Middle panel: Orientation angle scatter plot with SNR scaling
         - Lower middle panel: Clock error measurements
-        - Bottom panel: Gain ratio comparisons (E/N, E/Z, N/Z)
+        - Bottom panel: Sensitivity ratio comparisons (E/N, E/Z, N/Z)
         - Right panel: Kernel density estimate of orientation angles
     
         Notes:
@@ -441,7 +439,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
         # stationXML info DataFrame
         df_xml = pd.DataFrame(data_xml)
     
-        colnames = ['network', 'station','location','evtime','SNR', 'phi', 'theta','clock_error', 'quality', 'gain_HHN', 'gain_HHE', 'gain_HHZ']
+        colnames = ['network', 'station','location','evtime','SNR', 'phi', 'theta','clock_error', 'quality', 'sensitivity_HHN', 'sensitivity_HHE', 'sensitivity_HHZ']
         
         feather_files_lst = [pd.read_feather(i,columns=colnames) for i in glob.glob(SSPARQ_OUTPUT+'FEATHER_FILES/METRICS/'+net+'.'+sta+'.'+loc+'/*')]
     
@@ -459,11 +457,10 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
         # Data
         
         orientations_all_good = df_sta[df_sta['quality'] == 'good']['theta'].values # Orientations
-        time_all_good = df_sta[df_sta['quality'] == 'good']['evtime'].values  # Time in datetime
         time_all_stamp = df_sta[df_sta['quality'] == 'good']['evtime'].apply(lambda x: int(x.timestamp()))  # Time in Timestamp
     
         if len(orientations_all_good) > MIN_ORIENTATION_STATION:
-    
+
             # ================================= #
             # START: DBSCAN clusters estimation #
             # ================================= #
@@ -490,7 +487,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
     
             for n_eps in eps_range:
                 try:
-                    clustering = DBSCAN(eps=round(n_eps,3), min_samples=len(orientations_all_good)//per_samples).fit(data_scale)
+                    clustering = DBSCAN(eps=round(n_eps,3), min_samples=int(len(orientations_all_good)//per_samples)).fit(data_scale)
                     ss = silhouette_score(data_scale, clustering.fit_predict(data_scale))
                     
                     eps_lst.append(n_eps)
@@ -515,13 +512,13 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                 # ------------------------
                 # DBSCAN clustering result
     
-                clustering = DBSCAN(eps=round(elbow_point,2), min_samples=len(orientations_all_good)//per_samples).fit(data_scale)
+                clustering = DBSCAN(eps=round(elbow_point,2), min_samples=int(len(orientations_all_good)//per_samples)).fit(data_scale)
                 
                 df_sta['class'] = -10  # standart value
                 df_sta.loc[df_sta['quality'] == 'good', 'class'] = clustering.labels_
                 unique_labels = list(set(clustering.labels_))
     
-                if silhouette_score_elbow_point > 0.22 and len(unique_labels) < 6:
+                if silhouette_score_elbow_point > MIN_SILHOUETTE_SCORE and len(unique_labels) < 6:
     
                     colors = [mcolors.to_rgba(plt.cm.Spectral(each),alpha=0.5) for each in np.linspace(0, 1, len(unique_labels))]
                     label_dbscan = ['g'+str(1+w)+': ' if w != -1 else 'ol: ' for w in unique_labels]
@@ -544,7 +541,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                     ax0 = fig.add_subplot(gs[0, 0])  #  Number of events axis
                     ax1 = fig.add_subplot(gs[1, 0],sharex=ax0)  # Orientation axis
                     ax2 = fig.add_subplot(gs[2, 0],sharex=ax0)  # Clock axis
-                    ax3 = fig.add_subplot(gs[3, 0],sharex=ax0)  # Gain axis
+                    ax3 = fig.add_subplot(gs[3, 0],sharex=ax0)  # Sensitivity axis
                     ax4 = fig.add_subplot(gs[1, 1],sharey=ax1)  # KDE axis
 
                     # Plotting theta from the stationXML
@@ -581,15 +578,15 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
     
                             ax2.scatter([ye_num]*len(clock_error_bad), clock_error_bad,color='gray',marker='.',edgecolor='none',alpha=0.25)
     
-                            # gain plot #
+                            # Sensitivity plot #
     
-                            gain_HHE_bad = df_sta_year[df_sta_year['quality'] == 'bad']['gain_HHE'].values # Gain HHE bad
-                            gain_HHN_bad= df_sta_year[df_sta_year['quality'] == 'bad']['gain_HHN'].values # Gain HHN bad
-                            gain_HHZ_bad = df_sta_year[df_sta_year['quality'] == 'bad']['gain_HHZ'].values # Gain HHZ bad
+                            sensitivity_HHE_bad = df_sta_year[df_sta_year['quality'] == 'bad']['sensitivity_HHE'].values # Sensitivity HHE bad
+                            sensitivity_HHN_bad= df_sta_year[df_sta_year['quality'] == 'bad']['sensitivity_HHN'].values # Sensitivity HHN bad
+                            sensitivity_HHZ_bad = df_sta_year[df_sta_year['quality'] == 'bad']['sensitivity_HHZ'].values # Sensitivity HHZ bad
         
-                            g1 = ax3.scatter([ye_num]*len(gain_HHZ_bad),np.log(gain_HHE_bad/gain_HHN_bad),c='gray',marker='p',edgecolor='none',s=10,alpha=0.25,label='E/N')
-                            g2 = ax3.scatter([ye_num]*len(gain_HHZ_bad),np.log(gain_HHE_bad/gain_HHZ_bad),c='gray',marker='>',edgecolor='none',s=10,alpha=0.25,label='E/Z')
-                            g3 = ax3.scatter([ye_num]*len(gain_HHZ_bad),np.log(gain_HHN_bad/gain_HHZ_bad),c='gray',marker='^',edgecolor='none',s=10,alpha=0.25,label='N/Z')
+                            g1 = ax3.scatter([ye_num]*len(sensitivity_HHZ_bad),np.log(sensitivity_HHE_bad/sensitivity_HHN_bad),c='gray',marker='p',edgecolor='none',s=10,alpha=0.25,label='E/N')
+                            g2 = ax3.scatter([ye_num]*len(sensitivity_HHZ_bad),np.log(sensitivity_HHE_bad/sensitivity_HHZ_bad),c='gray',marker='>',edgecolor='none',s=10,alpha=0.25,label='E/Z')
+                            g3 = ax3.scatter([ye_num]*len(sensitivity_HHZ_bad),np.log(sensitivity_HHN_bad/sensitivity_HHZ_bad),c='gray',marker='^',edgecolor='none',s=10,alpha=0.25,label='N/Z')
                         
                         else:
                         
@@ -612,18 +609,18 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
     
                                 clock_error_good = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == uni)]['clock_error'].values # Clock instability cluster good
     
-                                gain_HHE_good = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == uni)]['gain_HHE'].values # Gain HHE cluster good
-                                gain_HHN_good = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == uni)]['gain_HHN'].values # Gain HHN cluster good
-                                gain_HHZ_good = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == uni)]['gain_HHZ'].values # Gain HHZ cluster good
+                                sensitivity_HHE_good = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == uni)]['sensitivity_HHE'].values # Sensitivity HHE cluster good
+                                sensitivity_HHN_good = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == uni)]['sensitivity_HHN'].values # Sensitivity HHN cluster good
+                                sensitivity_HHZ_good = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == uni)]['sensitivity_HHZ'].values # Sensitivity HHZ cluster good
     
     
                                 ax0.bar(ye_num, len(orientations_good_cluster), color=col, width=10, alpha=0.5,zorder=1) # Plot histogram cluster good
                                 ax1.scatter([ye_num]*len(orientations_good_cluster), orientations_good_cluster, marker='.', color=col,s=snr_good_cluster*10, alpha=0.25, ec='k') # Plot orientations cluster good                          
                                 ax2.scatter([ye_num]*len(clock_error_good), clock_error_good,color=col,marker='.',edgecolor='none',alpha=0.25) # Plot clock instability cluster good
     
-                                g1 = ax3.scatter([ye_num]*len(gain_HHZ_good),np.log(gain_HHE_good/gain_HHN_good),color=col,marker='p',edgecolor='none',s=10,alpha=0.25,label='E/N')  # Plot E\N cluster good
-                                g2 = ax3.scatter([ye_num]*len(gain_HHZ_good),np.log(gain_HHE_good/gain_HHZ_good),color=col,marker='>',edgecolor='none',s=10,alpha=0.25,label='E/Z')  # Plot E\Z cluster good
-                                g3 = ax3.scatter([ye_num]*len(gain_HHZ_good),np.log(gain_HHN_good/gain_HHZ_good),color=col,marker='^',edgecolor='none',s=10,alpha=0.25,label='N/Z')  # Plot N\Z cluster good
+                                g1 = ax3.scatter([ye_num]*len(sensitivity_HHZ_good),np.log(sensitivity_HHE_good/sensitivity_HHN_good),color=col,marker='p',edgecolor='none',s=10,alpha=0.25,label='E/N')  # Plot E\N cluster good
+                                g2 = ax3.scatter([ye_num]*len(sensitivity_HHZ_good),np.log(sensitivity_HHE_good/sensitivity_HHZ_good),color=col,marker='>',edgecolor='none',s=10,alpha=0.25,label='E/Z')  # Plot E\Z cluster good
+                                g3 = ax3.scatter([ye_num]*len(sensitivity_HHZ_good),np.log(sensitivity_HHN_good/sensitivity_HHZ_good),color=col,marker='^',edgecolor='none',s=10,alpha=0.25,label='N/Z')  # Plot N\Z cluster good
             
                                 if uni != -1:
     
@@ -632,9 +629,9 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                                     ax1.annotate(f"{round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 1)}±{round(np.std(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 2)}°",(pd.to_datetime(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['evtime'].values).mean(), round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == uni)]['theta'].values), 1)),fontsize=20, va='center', ha='center',path_effects=[path_effects.Stroke(linewidth=3, foreground='white'), path_effects.Normal()],zorder=100)
                                     ax2.scatter([ye_num]*len(clock_error_good), clock_error_good,color=col,marker='.',edgecolor='none',alpha=0.5) # Plot clock instability cluster good
     
-                                    g1 = ax3.scatter([ye_num]*len(gain_HHZ_good),np.log(gain_HHE_good/gain_HHN_good),color=col,marker='p',edgecolor='none',s=10,alpha=0.5,label='E/N')  # Plot E\N cluster good
-                                    g2 = ax3.scatter([ye_num]*len(gain_HHZ_good),np.log(gain_HHE_good/gain_HHZ_good),color=col,marker='>',edgecolor='none',s=10,alpha=0.5,label='E/Z')  # Plot E\N cluster good
-                                    g3 = ax3.scatter([ye_num]*len(gain_HHZ_good),np.log(gain_HHN_good/gain_HHZ_good),color=col,marker='^',edgecolor='none',s=10,alpha=0.5,label='N/Z')  # Plot E\N cluster good
+                                    g1 = ax3.scatter([ye_num]*len(sensitivity_HHZ_good),np.log(sensitivity_HHE_good/sensitivity_HHN_good),color=col,marker='p',edgecolor='none',s=10,alpha=0.5,label='E/N')  # Plot E\N cluster good
+                                    g2 = ax3.scatter([ye_num]*len(sensitivity_HHZ_good),np.log(sensitivity_HHE_good/sensitivity_HHZ_good),color=col,marker='>',edgecolor='none',s=10,alpha=0.5,label='E/Z')  # Plot E\N cluster good
+                                    g3 = ax3.scatter([ye_num]*len(sensitivity_HHZ_good),np.log(sensitivity_HHN_good/sensitivity_HHZ_good),color=col,marker='^',edgecolor='none',s=10,alpha=0.5,label='N/Z')  # Plot E\N cluster good
     
                     bad_values = len(df_sta[df_sta['quality'] == 'bad']['theta'].values)
                     label_dbscan_lst_end.append('bd: '+str(bad_values))
@@ -698,7 +695,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                     ax2.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
                     ax2.set_ylabel("Time")
     
-                    # Gain parameters
+                    # Sensitivity parameters
                     
                     ax3.figure.legend(handles=[g1, g2, g3],loc='center',bbox_to_anchor=(0.85, 0.14),frameon=False,ncol=1,fontsize=10,borderaxespad=0.)
                     ax3.tick_params(axis="x", which='both', labelbottom=True, labeltop=False, rotation=30)
@@ -707,7 +704,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                     ax3.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
                     ax3.xaxis.set_major_locator(mdates.MonthLocator(interval=18))
                     ax3.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
-                    ax3.set_ylabel("Gain")
+                    ax3.set_ylabel("log(S)")
     
                     # KDE parameters
                     
@@ -725,7 +722,6 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                     os.makedirs(output_figure_SSPARQ, exist_ok=True)
                     fig.savefig(output_figure_SSPARQ + f'METRICS_TOTAL_{net}_{sta}_{loc}.png',facecolor='w',dpi=300,bbox_inches='tight', pad_inches=0)
                     plt.close()
-                
                 else:
                 
                     # ---------
@@ -793,15 +789,15 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
     
                             ax2.scatter([ye_num]*len(clock_error_bad), clock_error_bad,c='gray',marker='.',edgecolor='none',alpha=0.25) # Plot clock instability bad
     
-                            # gain plot #
+                            # Sensitivity plot #
     
-                            gain_HHE_bad = df_sta_year[df_sta_year['quality'] == 'bad']['gain_HHE'].values.mean() # Gain HHE bad
-                            gain_HHN_bad= df_sta_year[df_sta_year['quality'] == 'bad']['gain_HHN'].values.mean() # Gain HHN bad
-                            gain_HHZ_bad = df_sta_year[df_sta_year['quality'] == 'bad']['gain_HHZ'].values.mean() # Gain HHZ bad
+                            sensitivity_HHE_bad = df_sta_year[df_sta_year['quality'] == 'bad']['sensitivity_HHE'].values.mean() # Sensitivity HHE bad
+                            sensitivity_HHN_bad= df_sta_year[df_sta_year['quality'] == 'bad']['sensitivity_HHN'].values.mean() # Sensitivity HHN bad
+                            sensitivity_HHZ_bad = df_sta_year[df_sta_year['quality'] == 'bad']['sensitivity_HHZ'].values.mean() # Sensitivity HHZ bad
         
-                            g1 = ax3.scatter(ye_num,np.log(gain_HHE_bad/gain_HHN_bad),c='gray',marker='p',edgecolor='none',s=10,alpha=0.25,label='E/N') # Plot E/N bad
-                            g2 = ax3.scatter(ye_num,np.log(gain_HHE_bad/gain_HHZ_bad),c='gray',marker='>',edgecolor='none',s=10,alpha=0.25,label='E/Z') # Plot E/Z bad
-                            g3 = ax3.scatter(ye_num,np.log(gain_HHN_bad/gain_HHZ_bad),c='gray',marker='^',edgecolor='none',s=10,alpha=0.25,label='N/Z') # Plot N/Z bad
+                            g1 = ax3.scatter(ye_num,np.log(sensitivity_HHE_bad/sensitivity_HHN_bad),c='gray',marker='p',edgecolor='none',s=10,alpha=0.25,label='E/N') # Plot E/N bad
+                            g2 = ax3.scatter(ye_num,np.log(sensitivity_HHE_bad/sensitivity_HHZ_bad),c='gray',marker='>',edgecolor='none',s=10,alpha=0.25,label='E/Z') # Plot E/Z bad
+                            g3 = ax3.scatter(ye_num,np.log(sensitivity_HHN_bad/sensitivity_HHZ_bad),c='gray',marker='^',edgecolor='none',s=10,alpha=0.25,label='N/Z') # Plot N/Z bad
        
                         else:
                             orientations_good = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == 1)]['theta'].values
@@ -842,29 +838,29 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                             ax2.scatter([ye_num]*len(clock_error_out), clock_error_out,c='mediumpurple',marker='.',edgecolor='none',alpha=0.25) # Plot clock instability out
                             ax2.scatter([ye_num]*len(clock_error_good), clock_error_good,c='#9e0039',marker='.',edgecolor='none',alpha=0.5) # Plot clock instability out
     
-                            gain_HHE_bad = df_sta_year[df_sta_year['quality'] == 'bad']['gain_HHE'].values.mean() # Gain HHE bad
-                            gain_HHN_bad= df_sta_year[df_sta_year['quality'] == 'bad']['gain_HHN'].values.mean() # Gain HHN bad
-                            gain_HHZ_bad = df_sta_year[df_sta_year['quality'] == 'bad']['gain_HHZ'].values.mean() # Gain HHZ bad
+                            sensitivity_HHE_bad = df_sta_year[df_sta_year['quality'] == 'bad']['sensitivity_HHE'].values.mean() # Sensitivity HHE bad
+                            sensitivity_HHN_bad= df_sta_year[df_sta_year['quality'] == 'bad']['sensitivity_HHN'].values.mean() # Sensitivity HHN bad
+                            sensitivity_HHZ_bad = df_sta_year[df_sta_year['quality'] == 'bad']['sensitivity_HHZ'].values.mean() # Sensitivity HHZ bad
         
-                            g1 = ax3.scatter(ye_num,np.log(gain_HHE_bad/gain_HHN_bad),c='gray',marker='p',edgecolor='none',s=10,alpha=0.25,label='E/N') # Plot E/N bad
-                            g2 = ax3.scatter(ye_num,np.log(gain_HHE_bad/gain_HHZ_bad),c='gray',marker='>',edgecolor='none',s=10,alpha=0.25,label='E/Z') # Plot E/Z bad
-                            g3 = ax3.scatter(ye_num,np.log(gain_HHN_bad/gain_HHZ_bad),c='gray',marker='^',edgecolor='none',s=10,alpha=0.25,label='N/Z') # Plot N/Z bad
+                            g1 = ax3.scatter(ye_num,np.log(sensitivity_HHE_bad/sensitivity_HHN_bad),c='gray',marker='p',edgecolor='none',s=10,alpha=0.25,label='E/N') # Plot E/N bad
+                            g2 = ax3.scatter(ye_num,np.log(sensitivity_HHE_bad/sensitivity_HHZ_bad),c='gray',marker='>',edgecolor='none',s=10,alpha=0.25,label='E/Z') # Plot E/Z bad
+                            g3 = ax3.scatter(ye_num,np.log(sensitivity_HHN_bad/sensitivity_HHZ_bad),c='gray',marker='^',edgecolor='none',s=10,alpha=0.25,label='N/Z') # Plot N/Z bad
                             
-                            gain_HHE_out = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == -1)]['gain_HHE'].values.mean() # Gain HHE out
-                            gain_HHN_out = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == -1)]['gain_HHN'].values.mean() # Gain HHN out
-                            gain_HHZ_out = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == -1)]['gain_HHZ'].values.mean() # Gain HHZ out
+                            sensitivity_HHE_out = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == -1)]['sensitivity_HHE'].values.mean() # Sensitivity HHE out
+                            sensitivity_HHN_out = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == -1)]['sensitivity_HHN'].values.mean() # Sensitivity HHN out
+                            sensitivity_HHZ_out = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == -1)]['sensitivity_HHZ'].values.mean() # Sensitivity HHZ out
     
-                            g1 = ax3.scatter(ye_num,np.log(gain_HHE_out/gain_HHN_out),c='mediumpurple',marker='p',edgecolor='none',s=10,alpha=0.25,label='E/N') # Plot E/N out
-                            g2 = ax3.scatter(ye_num,np.log(gain_HHE_out/gain_HHZ_out),c='mediumpurple',marker='>',edgecolor='none',s=10,alpha=0.25,label='E/Z') # Plot E/Z out
-                            g3 = ax3.scatter(ye_num,np.log(gain_HHN_out/gain_HHZ_out),c='mediumpurple',marker='^',edgecolor='none',s=10,alpha=0.25,label='N/Z') # Plot N/Z out
+                            g1 = ax3.scatter(ye_num,np.log(sensitivity_HHE_out/sensitivity_HHN_out),c='mediumpurple',marker='p',edgecolor='none',s=10,alpha=0.25,label='E/N') # Plot E/N out
+                            g2 = ax3.scatter(ye_num,np.log(sensitivity_HHE_out/sensitivity_HHZ_out),c='mediumpurple',marker='>',edgecolor='none',s=10,alpha=0.25,label='E/Z') # Plot E/Z out
+                            g3 = ax3.scatter(ye_num,np.log(sensitivity_HHN_out/sensitivity_HHZ_out),c='mediumpurple',marker='^',edgecolor='none',s=10,alpha=0.25,label='N/Z') # Plot N/Z out
     
-                            gain_HHE_good = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == 1)]['gain_HHE'].values.mean() # Gain HHE good
-                            gain_HHN_good = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == 1)]['gain_HHN'].values.mean() # Gain HHN good
-                            gain_HHZ_good = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == 1)]['gain_HHZ'].values.mean() # Gain HHZ good
+                            sensitivity_HHE_good = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == 1)]['sensitivity_HHE'].values.mean() # Sensitivity HHE good
+                            sensitivity_HHN_good = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == 1)]['sensitivity_HHN'].values.mean() # Sensitivity HHN good
+                            sensitivity_HHZ_good = df_sta_year[(df_sta_year['quality'] == 'good') & (df_sta_year['class'] == 1)]['sensitivity_HHZ'].values.mean() # Sensitivity HHZ good
     
-                            g1 = ax3.scatter(ye_num,np.log(gain_HHE_good/gain_HHN_good),c='#9e0039',marker='p',edgecolor='none',s=10,alpha=0.5,label='E/N') # Plot E/N good
-                            g2 = ax3.scatter(ye_num,np.log(gain_HHE_good/gain_HHZ_good),c='#9e0039',marker='>',edgecolor='none',s=10,alpha=0.5,label='E/Z') # Plot E/Z good
-                            g3 = ax3.scatter(ye_num,np.log(gain_HHN_good/gain_HHZ_good),c='#9e0039',marker='^',edgecolor='none',s=10,alpha=0.5,label='N/Z') # Plot N/Z good
+                            g1 = ax3.scatter(ye_num,np.log(sensitivity_HHE_good/sensitivity_HHN_good),c='#9e0039',marker='p',edgecolor='none',s=10,alpha=0.5,label='E/N') # Plot E/N good
+                            g2 = ax3.scatter(ye_num,np.log(sensitivity_HHE_good/sensitivity_HHZ_good),c='#9e0039',marker='>',edgecolor='none',s=10,alpha=0.5,label='E/Z') # Plot E/Z good
+                            g3 = ax3.scatter(ye_num,np.log(sensitivity_HHN_good/sensitivity_HHZ_good),c='#9e0039',marker='^',edgecolor='none',s=10,alpha=0.5,label='N/Z') # Plot N/Z good
                             
                     ax1.annotate(f"{round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 1)}±{round(np.std(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 2)}°",(pd.to_datetime(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['evtime'].values).mean(), round(np.mean(df_sta[(df_sta['quality'] == 'good') & (df_sta['class'] == 1)]['theta'].values), 1)),fontsize=20, va='center', ha='center',path_effects=[path_effects.Stroke(linewidth=3, foreground='white'), path_effects.Normal()],zorder=100)
                            
@@ -930,7 +926,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                     ax2.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
                     ax2.set_ylabel("Time")
     
-                    # Gain parameters
+                    # Sensitivity parameters
                     
                     ax3.figure.legend(handles=[g1, g2, g3],loc='center',bbox_to_anchor=(0.85, 0.14),frameon=False,ncol=1,fontsize=10,borderaxespad=0.)
                     ax3.tick_params(axis="x", which='both', labelbottom=True, labeltop=False, rotation=30)
@@ -939,7 +935,7 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                     ax3.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
                     ax3.xaxis.set_major_locator(mdates.MonthLocator(interval=18))
                     ax3.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
-                    ax3.set_ylabel("Gain")
+                    ax3.set_ylabel("log(S)")
     
                     # KDE parameters
                     

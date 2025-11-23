@@ -132,9 +132,9 @@ The configuration file can have any name, as long as the extension is .cnf (e.g.
 - To reproduce the results, first download the dataset used in this study from Zenodo:
    - **de Oliveira Coelho, D. L. (2025)**.  
    - *Scalable Seismological Pipeline for Assessment, Review, and Quality (SSPARQ) of Seismic Data* [Data set].  
-   - Zenodo. https://doi.org/10.5281/zenodo.16912134
+   - Zenodo. https://doi.org/10.5281/zenodo.17693470
 
-   You can download it manually from the [Zenodo page](https://doi.org/10.5281/zenodo.16912134)
+   You can download it manually from the [Zenodo page](https://doi.org/10.5281/zenodo.17693470)
    
 4. Run the following notebooks to reproduce the results:
 - Estimate earthquake metrics from raw seismic data:

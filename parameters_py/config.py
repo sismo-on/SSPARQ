@@ -188,3 +188,14 @@ PER_SAMPLES = config.getfloat('algoritm', 'PER_SAMPLES')
 
 EPSILON_LOW = config.getfloat('algoritm', 'EPSILON_LOW') 
 EPSILON_UP  = config.getfloat('algoritm', 'EPSILON_UP') 
+
+## -----------------------------------------------------------------------
+## The silhouette score evaluates the quality of a DBSCAN clustering. 
+## The Silhouette index ranges from -1 to 1, where negative values 
+## indicate higher within-cluster dissimilarity than between-cluster 
+## dissimilarity, while positive values suggest a higher likelihood 
+## of correct clustering. The MIN_SILHOUETTE_SCORE is the optimal 
+## minimal value for distinguishing well-defined clusters from noise.
+## (default = 0.2)
+
+MIN_SILHOUETTE_SCORE = config.getfloat('algoritm', 'MIN_SILHOUETTE_SCORE') 

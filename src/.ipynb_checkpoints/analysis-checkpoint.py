@@ -56,84 +56,89 @@ def aic_simple(a):
     aic_res = np.empty(n, dtype=np.float64)
     clibsignal.aic_simple(aic_res, a, n)
     return aic_res
-    
-#-------------------------------------------------------------------------------
 
-def find_orientation(baz,SS,SZR,ERTR,ERRZ):
+# --------------------------------------------------------------------------
 
+def find_orientation(baz, SS, SZR, ERTR, ERRZ):
     """
-    This function calculates the best back azimuth (phi) and sensor misorientation (theta) based on the 
-    given quality criteria: signal strength (SS), similarity of vertical and radial components (SZR), 
-    transverse-to-radial energy ratio (ERTR), and radial-to-vertical energy ratio (ERRZ).
-
-    The cost function combines these criteria in such a way that minimazing the cost function helps to
-    find the optimal back azimuth and corresponding orientation. The function outputs the best back azimuth, orientation,
-    and the values of the quality criteria at the best azimuth index.
-
-    Parameters:
-    ----------
-    baz : float
-        Initial back azimuth value from the taup model (degrees).
-    SS : np.array
-        Array of signal strength values for each azimuth angle.
-    SZR : np.array
-        Array of similarity values between vertical and radial components for each azimuth angle.
-    ERTR : np.array
-        Array of transverse-to-radial energy ratios for each azimuth angle.
-    ERRZ : np.array
-        Array of radial-to-vertical energy ratios for each azimuth angle.
-
-    Returns:
-    -------
-    phi : float
-        The best back azimuth angle (degrees) that minimizes the cost function.
-    theta : float
-        The sensor misorientation angle (degrees), defined as the difference between the true back azimuth 
-        and the estimated back azimuth.
-    SS_best : float
-        The signal strength value at the best azimuth.
-    SZR_best : float
-        The similarity between vertical and radial components at the best azimuth.
-    ERTR_best : float
-        The transverse-to-radial energy ratio at the best azimuth.
-    ERRZ_best : float
-        The radial-to-vertical energy ratio at the best azimuth.
+    This function calculates the best back azimuth (phi) and sensor misorientation (theta) 
+    using a hybrid approach: coarse search (10° steps) followed by Newton's method refinement.
     """
     
-    # Find best index
-    cost_function = (
-                SS -  # Minimizing energy
-                SZR ) # Maximizing similarity
+    def cost_function(phi_deg):
+        """Cost function for a given azimuth angle in degrees"""
+        # Convert to index in the original arrays
+        idx = int(phi_deg / 0.1)  # since original resolution was 0.1°
+        idx = idx % len(SS)  # handle wrap-around
+        
+        return (SS[idx] - SZR[idx])  # Minimizing energy, maximizing similarity
     
-    # Best index will minimize the cost function                    
-    best_index = np.argmin(cost_function)
+    def cost_function_derivative(phi_deg):
+        """Numerical derivative of cost function"""
+        h = 0.1  # small step for derivative calculation
+        f_plus = cost_function(phi_deg + h)
+        f_minus = cost_function(phi_deg - h)
+        return (f_plus - f_minus) / (2 * h)
     
-    # --------------------
-    # Search Space of BAZ
-
-    # Step size for the azimuth search (in degrees).
-    dphi = 0.1
-
-    # Array of azimuth angles to search through (in degrees).
-    ang = np.arange(0., 360., dphi)
-                            
-    # Get azimuth and correct for angles above 360
-    phi = round(ang[best_index])
-    theta = round(baz - ang[best_index])
-
+    def cost_function_second_derivative(phi_deg):
+        """Numerical second derivative of cost function"""
+        h = 0.1
+        f_plus = cost_function(phi_deg + h)
+        f_center = cost_function(phi_deg)
+        f_minus = cost_function(phi_deg - h)
+        return (f_plus - 2 * f_center + f_minus) / (h ** 2)
+    
+    # Step 1: Coarse search with 10° steps
+    coarse_angles = np.arange(0., 360., 10.)
+    coarse_costs = np.array([cost_function(angle) for angle in coarse_angles])
+    
+    # Find best candidate from coarse search
+    best_coarse_idx = np.argmin(coarse_costs)
+    phi_coarse = coarse_angles[best_coarse_idx]
+    
+    # Step 2: Refine using Newton's method
+    phi_refined = phi_coarse
+    max_iterations = 50
+    tolerance = 1e-6
+    
+    for i in range(max_iterations):
+        f_prime = cost_function_derivative(phi_refined)
+        f_double_prime = cost_function_second_derivative(phi_refined)
+        
+        # Avoid division by zero and ensure we're moving toward minimum
+        if abs(f_double_prime) > 1e-10:
+            delta_phi = -f_prime / f_double_prime
+        else:
+            delta_phi = -f_prime * 0.1  # fallback to gradient descent
+            
+        phi_refined += delta_phi
+        
+        # Handle wrap-around (keep in 0-360 range)
+        phi_refined = phi_refined % 360
+        
+        # Check convergence
+        if abs(delta_phi) < tolerance:
+            break
+    
+    # Step 3: Find the exact index in the original arrays
+    best_index = int(round(phi_refined / 0.1)) % len(SS)
+    
+    # Get final values
+    phi = round(phi_refined, 1)
+    theta = round(baz - phi_refined, 1)
+    
     # Expressed as a deviation from North
-    theta = theta % 360          # Convert to (0°, 360°)
-    if theta > 180:              
-        theta -= 360             # Convert to (-180°, 180°)
-                            
-    # Get argument of maximum coherence:
+    theta = theta % 360
+    if theta > 180:
+        theta -= 360
+    
+    # Get quality metrics at best azimuth
     SS_best = SS[best_index]
     SZR_best = SZR[best_index]
     ERTR_best = ERTR[best_index]
     ERRZ_best = ERRZ[best_index]
-
-    return phi,theta,SS_best,SZR_best,ERTR_best,ERRZ_best
-
+    
+    return phi, theta, SS_best, SZR_best, ERTR_best, ERRZ_best
 # --------------------------------------------------------------------------
 
 def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_MIN,SNR_MIN=SNR_MIN,TRR_MIN=TRR_MIN,RVR_MIN=RVR_MIN):
@@ -141,18 +146,18 @@ def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_
     """
     Estimate back azimuth using P-wave particle motion and apply quality criteria.
 
-    This algorithm estimates the back azimuth by analyzing P-wave particle motion in an isotropic, 
-    homogeneous layered medium. In such a medium, the P-wave energy propagates along a great circle 
+    This algorithm estimates the back azimuth by analyzing P-wave particle motion in an isotropic,
+    homogeneous layered medium. In such a medium, the P-wave energy propagates along a great circle
     path between the source and receiver, with horizontal components defining the radial direction.
-    The angle between the radial direction and true north gives the back azimuth. The P-wave energy 
+    The angle between the radial direction and true north gives the back azimuth. The P-wave energy
     is confined to the vertical and radial components, with no energy in the transverse component.
 
-    The sensor 'misorientation angle' is the difference between the true back azimuth (from the taup model) 
+    The sensor 'misorientation angle' is the difference between the true back azimuth (from the taup model)
     and the empirically estimated back azimuth, with positive values representing a clockwise misorientation.
 
-    This method applies several quality criteria to filter out unreliable results from component malfunctions or 
+    This method applies several quality criteria to filter out unreliable results from component malfunctions or
     missing horizontal components:
-    
+
     == Quality criteria for automatic processing ==
 
     To select reliable back azimuths in automatic processing, the following five quality criteria are applied:
@@ -162,10 +167,10 @@ def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_
      - (4) Radial-to-vertical energy ratio.
      - (5) Signal-to-noise ratio (SNR) on the vertical component.
 
-    The function uses these criteria to assess the quality of the estimated back azimuth, and classifies the result 
+    The function uses these criteria to assess the quality of the estimated back azimuth, and classifies the result
     as 'good' or 'bad' based on the user-defined thresholds.
 
-    -----------  
+    -----------
     Parameters:
     ----------
     tr1 : np.array
@@ -189,61 +194,61 @@ def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_
         Minimum required transverse-to-radial energy ratio (default is 0.45).
     RVR_MIN : float, optional
         Minimum allowed radial-to-vertical energy ratio (default is -1).
-        
-    
+
+
     Returns:
     -------
     dict
         A dictionary containing the following calculated quality criteria, estimated azimuth, and additional results:
-        
+
         - 'phi' : float
             The estimated back azimuth angle (in degrees) based on the best-fit azimuth search.
-        
+
         - 'baz' : float
             The true back azimuth (in degrees) from the taup model, which serves as a reference for comparison with the estimated azimuth.
-        
+
         - 'SNR' : float
             The signal-to-noise ratio (SNR) of the vertical component, expressed in decibels (dB), representing the strength of the signal relative to noise.
-        
+
         - 'quality' : str
             A classification of the estimated azimuth quality ('good' or 'bad'), based on the comparison of various quality criteria and thresholds.
-        
+
         - 'theta' : float
             The sensor misorientation angle (in degrees), representing the difference between the true back azimuth (from the taup model) and the empirically estimated azimuth.
-        
+
         - 'SS_best' : float
             The best signal strength value for the optimal azimuth, quantifying the energy of the radial component for the best-fit azimuth.
-        
+
         - 'SZR_best' : float
             The best similarity score between the vertical and radial components for the optimal azimuth, indicating how well the vertical and radial components align.
-        
+
         - 'ERTR_best' : float
             The best transverse-to-radial energy ratio for the optimal azimuth, assessing the degree to which the transverse component contaminates the radial component.
-        
+
         - 'ERRZ_best' : float
             The best radial-to-vertical energy ratio for the optimal azimuth, showing the relative strength of the radial component compared to the vertical component.
-        
+
         - 'signal_strength' : np.array
             A NumPy array containing the signal strength values for each azimuth tested in the search range, reflecting the overall energy of the radial component.
-        
+
         - 'similarity_ZR' : np.array
             A NumPy array containing the similarity (correlation) coefficients between the vertical and radial components for each azimuth tested.
-        
+
         - 'energy_ratio_TR' : np.array
             A NumPy array containing the transverse-to-radial energy ratios for each azimuth tested, evaluating the amount of transverse energy relative to radial energy.
-        
+
         - 'max_value_HHR_N' : float
-            The gain (amplification factor) of radial maximum amplitude of the North-South (HHN) component.
-        
+            The sensitivity of radial maximum amplitude of the North-South (HHN) component.
+
         - 'max_value_HHR_E' : float
-            The gain (amplification factor) of radial maximum amplitude of the East-West (HHE) component.
-        
+            The sensitivity of radial maximum amplitude of the East-West (HHE) component.
+
     Notes:
     ------
-    The algorithm assumes that the back azimuth is between 0 and 360 degrees and that the sensor 
+    The algorithm assumes that the back azimuth is between 0 and 360 degrees and that the sensor
     misorientation is defined as the difference between the true back azimuth and the empirically estimated back azimuth.
     """
-    
+
     # --------------------
     # Search Space of BAZ
 
@@ -252,15 +257,15 @@ def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_
 
     # Array of azimuth angles to search through (in degrees).
     ang = np.arange(0., 360., dphi)
-    
+
     # ---------------------------
     # Initialize quality criteria
-    
+
     signal_strength = np.zeros(len(ang))
     similarity_ZR = np.zeros(len(ang))
     energy_ratio_TR = np.zeros(len(ang))
     energy_ratio_RZ = np.zeros(len(ang))
-  
+
     # Search through azimuths and find best-fit azimuth
     for k, an in enumerate(ang):
         R, T = rotate_ne_rt(tr1, tr2, an)
@@ -270,33 +275,33 @@ def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_
 
         # (2) Similarity of vertical and radial components
         similarity_ZR[k] = np.corrcoef(trZ, R)[0, 1]
-        
+
         # (3) Transverse-to-radial energy ratio
         energy_ratio_TR[k] = energy(T) / energy(R)
-        
+
         # (4) Radial-to-vertical energy ratio
-        energy_ratio_RZ[k] = energy(R) / energy(trZ)  
-    
+        energy_ratio_RZ[k] = energy(R) / energy(trZ)
+
     # (5) Signal-to-noise ratio on vertical component
     SNR = round(10.0 * np.log10(rms(trZ)**2 / rms(noise)**2), 1)
 
     # Normalizing the signal strength of the transversal component
-    signal_strength = (signal_strength - np.min(signal_strength)) / (np.max(signal_strength) - np.min(signal_strength)) 
+    signal_strength = (signal_strength - np.min(signal_strength)) / (np.max(signal_strength) - np.min(signal_strength))
 
     phi,theta,SS_best,SZR_best,ERTR_best,ERRZ_best = find_orientation(baz,signal_strength,similarity_ZR,energy_ratio_TR,energy_ratio_RZ)
 
-    # Estimating: instrument gain HHN
+    # Estimating: instrument sensitivity HHN
     new_R_N, new_T_N = rotate_ne_rt(tr1, tr2, phi)
 
     max_value_HHR_N = np.max(abs(new_R_N))
-    
-    # Estimating: instrument gain HHE
+
+    # Estimating: instrument sensitivity HHE
     new_R_E, new_T_E = rotate_ne_rt(tr2, tr1, adjust_baz_for_ZEN(phi))
 
     max_value_HHR_E = np.max(abs(new_R_E))
 
-    # Estimating: instrument gain HHZ
-    
+    # Estimating: instrument sensitivity HHZ
+
     max_value_HHZ = np.max(abs(trZ))
 
 
@@ -320,26 +325,26 @@ def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_
         'similarity_ZR': similarity_ZR,
         'energy_ratio_TR': energy_ratio_TR,
         'energy_ratio_RZ': energy_ratio_RZ,
-        'gain_HHN': max_value_HHR_N,
-        'gain_HHE': max_value_HHR_E,        
-        'gain_HHZ': max_value_HHZ,        
+        'sensitivity_HHN': max_value_HHR_N,
+        'sensitivity_HHE': max_value_HHR_E,
+        'sensitivity_HHZ': max_value_HHZ,
     }
-    
+
     return results
 
 # ---------------------------------------------------------------------------------------------------
 
 def calculate_metrics(input_lst):
     """
-    This function calculates the optimal orientation of horizontal seismic components (phi, theta) for a given station, 
-    using a set of qualifying seismic events. It processes waveform data for P-wave arrivals and evaluates their quality 
+    This function calculates the optimal orientation of horizontal seismic components (phi, theta) for a given station,
+    using a set of qualifying seismic events. It processes waveform data for P-wave arrivals and evaluates their quality
     based on signal-to-noise ratio (SNR), signal strength, and component energy ratios.
 
-    The function reads metadata from a StationXML file and searches for event-specific waveform files in a given directory. 
-    For each eligible event, the function estimates the arrival time of the P-wave using the TauP model and applies a 
+    The function reads metadata from a StationXML file and searches for event-specific waveform files in a given directory.
+    For each eligible event, the function estimates the arrival time of the P-wave using the TauP model and applies a
     modified version of the Braunmiller and Pornsopin algorithm to find the best azimuthal orientation of the sensor.
 
-    The results—including orientation angles, waveform data, energy metrics, and event classification—are stored in 
+    The results—including orientation angles, waveform data, energy metrics, and event classification—are stored in
     a `.feather` file per event for later analysis.
 
     Parameters
@@ -383,107 +388,124 @@ def calculate_metrics(input_lst):
     # Read XML file
     station_xml = op.read_inventory(XML_FILE)
     network = station_xml[0].code
-    station = station_xml[0][0].code    
+    station = station_xml[0][0].code
+    location = station_xml[0][0][0].location_code
 
     # -------------------------------
     # Epicentral distance estimation:
+    # Assuming the station in same location during the whole period
+
     stlo = station_xml[-1][-1][-1].longitude
     stla = station_xml[-1][-1][-1].latitude
-            
+
     dist, az, baz = gps2dist_azimuth(evla, evlo, stla, stlo)
     gcarc = kilometers2degrees(dist/1000)
 
     # -------------------------------
-    # Taup: theoretical travel times 
+    # Taup: theoretical travel times
 
     model = TauPyModel(model=TAUPY_MODEL)
     arrivals = model.get_travel_times(source_depth_in_km=evdp,distance_in_degree=gcarc,phase_list=['P','PKP','PKIKP'])
-        
+
     if len(arrivals) > 0 and (gcarc < 100 or 140 < gcarc <= 180):
-            
+
             # Event time + first phase arrival time
             evtime = evtime+arrivals[0].time
-            
+
             # ----------------------------
             # Check if feather file exists
-            
-            output_FEATHER_FILES_METRICS = SSPARQ_OUTPUT+'FEATHER_FILES/METRICS/'+network+'.'+station+'/'
-            
-            file_feather_name = output_FEATHER_FILES_METRICS+network+'.'+station+'.'+evname+'.metrics.feather'
-    
-            station_pwd = list(Path(WAVE_DIR).rglob('*'+year+'.'+julian_day+'*'))
-  
+
+            output_FEATHER_FILES_METRICS = SSPARQ_OUTPUT+'FEATHER_FILES/METRICS/'+network+'.'+station+'.'+location+'/'
+
+            file_feather_name = output_FEATHER_FILES_METRICS+network+'.'+station+'.'+location+'.'+evname+'.metrics.feather'
+
+            station_pwd = list(Path(WAVE_DIR).rglob(network+'.'+station+'.'+location+'.*'+year+'.'+julian_day+'*'))
+
             if os.path.isfile(file_feather_name):
                 pass
-        
+
             else:
                 # -------------------------------
                 # Check if components file exists
-                        
+
                 files = [str(x) for x in station_pwd if year+'.'+julian_day in str(x)]
 
                 if len(files) >= 3:
-                        
-                    file_HHE = [x for x in files if "HE." in x or "H2." in x][0]
-                    file_HHN = [x for x in files if "HN." in x or "H1." in x][0]
-                    file_HHZ = [x for x in files if "HZ." in x][0]
-            
+
+                    # if multiple events occured in a single day, select only the files related to the earthquake being analyzed
+                    multiple_events_day = False
+                    for file in files:
+                        if evname in file:
+                            multiple_events_day = True
+                            break
+                    if multiple_events_day:
+                        files = [x for x in files if evname in x]
+
+                    try:
+                        file_HHE = [x for x in files if "HE." in x or "H2." in x][0]
+                        file_HHN = [x for x in files if "HN." in x or "H1." in x][0]
+                        file_HHZ = [x for x in files if "HZ." in x][0]
+                    except IndexError:
+                        #print(station)
+                        return
+
+
                     # --------
                     # Data HHE
-                                
+
                     tr2_data_file = op.read(file_HHE)
                     tr2_data_file.trim(evtime-TIME_WINDOW,evtime+TIME_WINDOW)
                     tr2_data_file.taper(type='cosine',max_percentage=0.1)
                     tr2_data_file.filter('bandpass',freqmin=PERIOD_BANDS_MIN,freqmax=PERIOD_BANDS_MAX,zerophase=True, corners=4)
-                    
+
                     # --------
                     # Data HHN
-                    
+
                     tr1_data_file = op.read(file_HHN)
                     tr1_data_file.trim(evtime-TIME_WINDOW,evtime+TIME_WINDOW)
                     tr1_data_file.taper(type='cosine',max_percentage=0.1)
                     tr1_data_file.filter('bandpass',freqmin=PERIOD_BANDS_MIN,freqmax=PERIOD_BANDS_MAX,zerophase=True, corners=4)
-                            
+
                     # --------
                     # Data HHZ
-                                
+
                     trZ_data_file = op.read(file_HHZ)
                     trZ_data_file.trim(evtime-TIME_WINDOW,evtime+TIME_WINDOW)
                     trZ_data_file.taper(type='cosine',max_percentage=0.1)
                     trZ_data_file.filter('bandpass',freqmin=PERIOD_BANDS_MIN,freqmax=PERIOD_BANDS_MAX,zerophase=True, corners=4)
 
                     if len(tr2_data_file) > 0 and len(tr1_data_file) > 0 and len(trZ_data_file) > 0:
-                               
+
                             if (tr2_data_file[0].stats.npts == tr1_data_file[0].stats.npts == trZ_data_file[0].stats.npts) and (trZ_data_file[0].stats.npts > TIME_WINDOW * tr2_data_file[0].stats.sampling_rate):
 
                                 # -------------------------------------------------------------------------------------
                                 # Remove 5 seconds from the beginning and end of the waveform to eliminate edge effects
-                                
+
                                 # HHE
                                 tr2_data_filtered = tr2_data_file[0].data[int(5 * tr2_data_file[0].stats.sampling_rate):int(-5 * tr2_data_file[0].stats.sampling_rate)]
-                                
+
                                 # HHN
                                 tr1_data_filtered = tr1_data_file[0].data[int(5 * tr1_data_file[0].stats.sampling_rate):int(-5 * tr1_data_file[0].stats.sampling_rate)]
-                                    
+
                                 # HHZ
                                 trZ_data_filtered = trZ_data_file[0].data[int(5 * trZ_data_file[0].stats.sampling_rate):int(-5 * trZ_data_file[0].stats.sampling_rate)]
                                 trZ_time = trZ_data_file[0].times()[int(5 * trZ_data_file[0].stats.sampling_rate):int(-5 * trZ_data_file[0].stats.sampling_rate)]-TIME_WINDOW
 
                                 # -------------------------------------------
-                                # Function estimates the Akaike Information directly from data 
-                                # The Summed Log Likelihood section implies that a natural 
-                                # changepoint estimate is the sample index that minimizes 
+                                # Function estimates the Akaike Information directly from data
+                                # The Summed Log Likelihood section implies that a natural
+                                # changepoint estimate is the sample index that minimizes
                                 # the AIC in equation
-                                
+
                                 aic_curve = aic_simple(trZ_data_filtered)
-                                
+
                                 k_min_index = np.argmin(aic_curve)
-                            
+
                                 time_P_arr = trZ_time[k_min_index]
-                                                        
+
                                 # Time error:
                                 time_ins = round(time_P_arr,1)
-                            
+
                                 if time_ins > 0:
                                     signal_window_start = time_ins
                                     signal_window_final = time_ins+TIME_FINAL_P
@@ -493,48 +515,47 @@ def calculate_metrics(input_lst):
                                     signal_window_start = time_ins
                                     signal_window_final = TIME_FINAL_P+time_ins
                                     noise_window_start = time_ins
-                                    noise_window_final = -(abs(time_ins)+TIME_FINAL_P) 
+                                    noise_window_final = -(abs(time_ins)+TIME_FINAL_P)
                                 # -------------------------------------------------------------------------------------------------------------------------------
                                 # Signal and noise windows (using mask[boolean array] from numpy)
-                                        
+
                                 signal_window = (trZ_time >= signal_window_start) & (trZ_time <= signal_window_final)
                                 noise_window = (trZ_time >= noise_window_final) & (trZ_time <= noise_window_start)
-                                
+
                                 noise = trZ_data_filtered[noise_window]
                                 trZ_noise_time = trZ_time[noise_window]
-            
+
                                 tr2 = tr2_data_filtered[signal_window]
                                 tr1 = tr1_data_filtered[signal_window]
                                 trZ = trZ_data_filtered[signal_window]
                                 trZ_signal_time = trZ_time[signal_window]
-                                    
+
                                 # -------------------------------------------------------------------------------------------------------------------------------
                                 # Calculating the optimal orientation
-                                                    
+
                                 results = Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=0.45,SNR_MIN=10,TRR_MIN=0.45,RVR_MIN=-1)
 
                                 # -------------------------------------------------------------------------------------------------------------------------------
                                 # Calculating the Plunge of: P, B, and T axis
 
                                 if not moment_tensor:
-                                    
-                                    # ----------------------------------------------------------------------------------------------------                               
+
+                                    # ----------------------------------------------------------------------------------------------------
                                     # Creating a Pandas DataFrame:
-                                    
-                                    column_info = [network,station,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['gain_HHN'],results['gain_HHE'],results['gain_HHZ'],[]]
-                                    columns_header = ['network','station','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','gain_HHN','gain_HHE','gain_HHZ','event_class']
-                                    
-                                else:                                
+
+                                    column_info = [network,station,location,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['sensitivity_HHN'],results['sensitivity_HHE'],results['sensitivity_HHZ'],[]]
+                                    columns_header = ['network','station','location','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','sensitivity_HHN','sensitivity_HHE','sensitivity_HHZ','event_class']
+
+                                else:
                                     nodal_planes = moment_tensor_to_nodal_planes(moment_tensor)
                                     event_class = mecclass(nodal_planes)
 
-                                    # ----------------------------------------------------------------------------------------------------                               
+                                    # ----------------------------------------------------------------------------------------------------
                                     # Creating a Pandas DataFrame:
-                                    
-                                    column_info = [network,station,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['gain_HHN'],results['gain_HHE'],results['gain_HHZ'],moment_tensor,nodal_planes,event_class]
-                                    columns_header = ['network','station','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','gain_HHN','gain_HHE','gain_HHZ','moment tensor','nodal_planes','event_class']
-                                    
-                                    
+
+                                    column_info = [network,station,location,stla,stlo,evname,evla,evlo,evtime,evmag,evtype,evdp,dist,gcarc,baz,tr1_data_filtered,tr2_data_filtered,trZ_data_filtered,trZ_time,results['SS_best'],results['signal_strength'],results['SZR_best'],results['similarity_ZR'],results['ERTR_best'],results['energy_ratio_TR'],results['ERRZ_best'],results['energy_ratio_RZ'],results['SNR'],results['phi'],results['theta'],aic_curve,time_ins,results['quality'],results['sensitivity_HHN'],results['sensitivity_HHE'],results['sensitivity_HHZ'],moment_tensor,nodal_planes,event_class]
+                                    columns_header = ['network','station','location','stla','stlo','evname','evla','evlo','evtime','evmag','evtype','evdp','distance','gcarc','baz','tr1_data','tr2_data','trZ_data','trZ_time','SS_best','signal_strength','SZR_best','similarity_vertical_radial','ERTR_best','energy_transverse_radial','ERRZ_best','energy_radial_vertical','SNR','phi','theta','aic_curve','clock_error','quality','sensitivity_HHN','sensitivity_HHE','sensitivity_HHZ','moment tensor','nodal_planes','event_class']
+
                                 metrics_p_wave_df = pd.DataFrame(column_info, index=columns_header).T
                                 metrics_p_wave_df['evtime'] = pd.to_datetime(metrics_p_wave_df['evtime'].apply(lambda x: x.isoformat() if isinstance(x, UTCDateTime) else x))
 

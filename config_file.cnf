@@ -151,3 +151,14 @@ PER_SAMPLES = 20
 
 EPSILON_LOW = 0.2
 EPSILON_UP  = 0.3
+
+## -----------------------------------------------------------------------
+## The Silhouette score evaluates the quality of a DBSCAN clustering. 
+## The Silhouette index ranges from -1 to 1, where negative values 
+## indicate higher within-cluster dissimilarity than between-cluster 
+## dissimilarity, while positive values suggest a higher likelihood 
+## of correct clustering. The MIN_SILHOUETTE_SCORE is the optimal 
+## minimal value for distinguishing well-defined clusters from noise.
+## (default = 0.2)
+
+MIN_SILHOUETTE_SCORE = 0.2
