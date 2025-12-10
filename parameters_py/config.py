@@ -119,6 +119,18 @@ TIME_WINDOW = config.getfloat('event', 'TIME_WINDOW')
 
 TIME_FINAL_P = config.getfloat('event', 'TIME_FINAL_P')
 
+## ---------------------------------------------------------------
+## If True, the instrumental response is removed from the trace.
+## Default is False.
+
+REMOVE_RESPONSE = config.getboolean('event', 'REMOVE_RESPONSE')
+
+## ---------------------------------------------------------------
+## Physical unit of the output signal after response removal.
+## Accepted values are DISP, VEL, or ACC (Default is VEL).
+
+OUTPUT_UNIT = config.get('event', 'OUTPUT_UNIT')
+
 ## ---------------
 ## MULTIPROCESSING
 
@@ -143,8 +155,17 @@ SNR_MIN = config.getfloat('algoritm', 'SNR_MIN')
 TRR_MIN = config.getfloat('algoritm', 'TRR_MIN')
 
 ## -----------------------------------------------
-## Minimum allowed radial-to-vertical energy ratio (default is 2).
-RVR_MIN = config.getfloat('algoritm', 'RVR_MIN')
+## Maximum allowed radial-to-vertical energy ratio (default is 2).
+
+RVR_MAX = config.getfloat('algoritm', 'RVR_MAX')
+
+## -------------------------------------------------
+## Optimization method (default: grid_search)
+## Valid options:
+## - grid_search   : exhaustive fine search with a 0.1-degree step, without refinement
+## - hybrid_search : coarse search with 10-degree steps, followed by Newton's method refinement (faster)
+
+ORIENTATION_METHOD = config.get('algoritm', 'ORIENTATION_METHOD')
 
 ## -----------------------------------------------------------------
 ## Minimum number of measurements required to compute the final plot (default = 1).

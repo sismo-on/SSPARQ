@@ -37,7 +37,7 @@ from sklearn.metrics import silhouette_score
 # Importing SSPARQ setup:
 from parameters_py.config import (
 					WAVEFORM_DIR,CATALOG_FILE,XML_DIR,SSPARQ_OUTPUT,num_processes,TIME_FINAL_P,TIME_WINDOW,MIN_ORIENTATION_STATION,
-                    PER_SAMPLES,EPSILON_LOW,EPSILON_UP,MIN_SILHOUETTE_SCORE
+                    PER_SAMPLES,EPSILON_LOW,EPSILON_UP,MIN_SILHOUETTE_SCORE,OUTPUT_UNIT,REMOVE_RESPONSE
 				   )
 
 # Importing SSPARQ functions:
@@ -196,7 +196,15 @@ def plotting_event_orientation(df_row,SSPARQ_OUTPUT=SSPARQ_OUTPUT,TIME_FINAL_P=T
     ax3.plot(df_row['trZ_time'],df_row['trZ_data'],'-k',lw=2)
     ax3.tick_params(axis="x", labelbottom=False)
     ax3.annotate(df_row['network']+'.'+df_row['station']+'.'+df_row['location']+'.HHZ', (0.95, 0.85),xycoords='axes fraction',fontsize=15, va='center',ha='right',bbox=dict(boxstyle="round", fc="white"))
-    ax3.text(0, 1.1, '[counts]', transform=ax3.transAxes, fontsize=15,va='top', ha='left')
+
+    if REMOVE_RESPONSE == True:
+        unit_map = {"DISP": "m","VEL": "m/s","ACC": "m/s²"}
+        unit = unit_map.get(OUTPUT_UNIT, OUTPUT_UNIT)
+
+        ax3.text(0.05, 1.07,f'[{unit}]',transform=ax3.transAxes,fontsize=15,va='top',ha='left')
+    else:
+        ax3.text(0.05, 1.07, '[counts]', transform=ax3.transAxes, fontsize=15,va='top', ha='left')
+    
     ax3.axvspan(xmin=signal_window_start, xmax=signal_window_final, ymin=0, ymax=1,facecolor='none', edgecolor='blue', linestyle='--', lw=2,alpha=0.25,label='signal')
     ax3.axvspan(xmin=noise_window_start, xmax=noise_window_final, ymin=0, ymax=1,facecolor='none', edgecolor='red', linestyle='--', lw=2,alpha=0.25,label='noise')
     ax3.grid(which='major',linestyle=':')

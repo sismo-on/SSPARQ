@@ -17,11 +17,11 @@ import pyarrow.feather as feather
 
 from parameters_py.config import (
 					WAVEFORM_DIR,CATALOG_FILE,XML_DIR,SSPARQ_OUTPUT,num_processes,TAUPY_MODEL,TIME_WINDOW,PERIOD_BANDS_MAX,PERIOD_BANDS_MIN,TIME_FINAL_P,
-                    CVR_MIN,SNR_MIN,TRR_MIN,RVR_MIN
+                    CVR_MIN,SNR_MIN,TRR_MIN,RVR_MAX,ORIENTATION_METHOD,REMOVE_RESPONSE,OUTPUT_UNIT
 				   )
 
 from src.utils import (
-					moment_tensor_to_nodal_planes,calculate_plunge,mecclass,adjust_baz_for_ZEN,rms,energy
+					moment_tensor_to_nodal_planes,calculate_plunge,mecclass,adjust_baz_for_ZEN,rms,energy,preprocess_trace
 				   )
 #-------------------------------------------------------------------------------
 
@@ -57,9 +57,86 @@ def aic_simple(a):
     clibsignal.aic_simple(aic_res, a, n)
     return aic_res
 
+#-------------------------------------------------------------------------------
+
+def find_orientation_grid(baz,SS,SZR,ERTR,ERRZ):
+
+    """
+    This function calculates the best back azimuth (phi) and sensor misorientation (theta) based on the
+    given quality criteria: signal strength (SS), similarity of vertical and radial components (SZR),
+    transverse-to-radial energy ratio (ERTR), and radial-to-vertical energy ratio (ERRZ).
+
+    The cost function combines these criteria in such a way that minimazing the cost function helps to
+    find the optimal back azimuth and corresponding orientation. The function outputs the best back azimuth, orientation,
+    and the values of the quality criteria at the best azimuth index.
+
+    Parameters:
+    ----------
+    baz : float
+        Initial back azimuth value from the taup model (degrees).
+    SS : np.array
+        Array of signal strength values for each azimuth angle.
+    SZR : np.array
+        Array of similarity values between vertical and radial components for each azimuth angle.
+    ERTR : np.array
+        Array of transverse-to-radial energy ratios for each azimuth angle.
+    ERRZ : np.array
+        Array of radial-to-vertical energy ratios for each azimuth angle.
+
+    Returns:
+    -------
+    phi : float
+        The best back azimuth angle (degrees) that minimizes the cost function.
+    theta : float
+        The sensor misorientation angle (degrees), defined as the difference between the true back azimuth
+        and the estimated back azimuth.
+    SS_best : float
+        The signal strength value at the best azimuth.
+    SZR_best : float
+        The similarity between vertical and radial components at the best azimuth.
+    ERTR_best : float
+        The transverse-to-radial energy ratio at the best azimuth.
+    ERRZ_best : float
+        The radial-to-vertical energy ratio at the best azimuth.
+    """
+
+    # Find best index
+    cost_function = (
+                SS -  # Minimizing energy
+                SZR ) # Maximizing similarity
+
+    # Best index will minimize the cost function
+    best_index = np.argmin(cost_function)
+
+    # --------------------
+    # Search Space of BAZ
+
+    # Step size for the azimuth search (in degrees).
+    dphi = 0.1
+
+    # Array of azimuth angles to search through (in degrees).
+    ang = np.arange(0., 360., dphi)
+
+    # Get azimuth and correct for angles above 360
+    phi = round(ang[best_index])
+    theta = round(baz - ang[best_index])
+
+    # Expressed as a deviation from North
+    theta = theta % 360          # Convert to (0°, 360°)
+    if theta > 180:
+        theta -= 360             # Convert to (-180°, 180°)
+
+    # Get argument of maximum coherence:
+    SS_best = SS[best_index]
+    SZR_best = SZR[best_index]
+    ERTR_best = ERTR[best_index]
+    ERRZ_best = ERRZ[best_index]
+
+    return phi,theta,SS_best,SZR_best,ERTR_best,ERRZ_best
+
 # --------------------------------------------------------------------------
 
-def find_orientation(baz, SS, SZR, ERTR, ERRZ):
+def find_orientation_hybrid(baz, SS, SZR, ERTR, ERRZ):
     """
     This function calculates the best back azimuth (phi) and sensor misorientation (theta) 
     using a hybrid approach: coarse search (10° steps) followed by Newton's method refinement.
@@ -139,9 +216,10 @@ def find_orientation(baz, SS, SZR, ERTR, ERRZ):
     ERRZ_best = ERRZ[best_index]
     
     return phi, theta, SS_best, SZR_best, ERTR_best, ERRZ_best
+
 # --------------------------------------------------------------------------
 
-def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_MIN,SNR_MIN=SNR_MIN,TRR_MIN=TRR_MIN,RVR_MIN=RVR_MIN):
+def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_MIN,SNR_MIN=SNR_MIN,TRR_MIN=TRR_MIN,RVR_MAX=RVR_MAX,method=ORIENTATION_METHOD):
 
     """
     Estimate back azimuth using P-wave particle motion and apply quality criteria.
@@ -187,13 +265,16 @@ def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_
         Difference between observed and predicted travel time
         using available data of distant earthquake (in seconds).
     CCVR_MIN : float, optional
-        Minimum required similarity of vertical and radial components (default is 0.45).
+        Minimum required similarity of vertical and radial components (default is 0.5).
     SNR_MIN : float, optional
         Minimum required signal-to-noise ratio (default is 10).
     TRR_MIN : float, optional
-        Minimum required transverse-to-radial energy ratio (default is 0.45).
-    RVR_MIN : float, optional
-        Minimum allowed radial-to-vertical energy ratio (default is -1).
+        Minimum required transverse-to-radial energy ratio (default is 0.2).
+    RVR_MAX : float, optional
+        Maximum allowed radial-to-vertical energy ratio (default is 2).
+    method: choose the optimization method (optional, default is 'grid').
+        'grid_search': fine search with a step size of 0.1 degrees, without refinement.
+        'hybrid_search': coarse search with 10-degree steps, followed by refinement using Newton's method (faster).
 
 
     Returns:
@@ -288,7 +369,10 @@ def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_
     # Normalizing the signal strength of the transversal component
     signal_strength = (signal_strength - np.min(signal_strength)) / (np.max(signal_strength) - np.min(signal_strength))
 
-    phi,theta,SS_best,SZR_best,ERTR_best,ERRZ_best = find_orientation(baz,signal_strength,similarity_ZR,energy_ratio_TR,energy_ratio_RZ)
+    if method == 'hybrid_search':
+        phi,theta,SS_best,SZR_best,ERTR_best,ERRZ_best = find_orientation_hybrid(baz,signal_strength,similarity_ZR,energy_ratio_TR,energy_ratio_RZ)
+    else:
+        phi,theta,SS_best,SZR_best,ERTR_best,ERRZ_best = find_orientation_grid(baz,signal_strength,similarity_ZR,energy_ratio_TR,energy_ratio_RZ)
 
     # Estimating: instrument sensitivity HHN
     new_R_N, new_T_N = rotate_ne_rt(tr1, tr2, phi)
@@ -305,7 +389,7 @@ def Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_
     max_value_HHZ = np.max(abs(trZ))
 
 
-    if (SZR_best >= CCVR_MIN) & (SNR >= SNR_MIN) & (ERTR_best < TRR_MIN) & (ERRZ_best >= RVR_MIN) &  (-90 < time_ins < 90):
+    if (SZR_best >= CCVR_MIN) & (SNR >= SNR_MIN) & (ERTR_best < TRR_MIN) & (ERRZ_best < RVR_MAX) &  (-90 < time_ins < 90):
         quality = 'good'
     else:
         quality = 'bad'
@@ -452,27 +536,36 @@ def calculate_metrics(input_lst):
 
                     # --------
                     # Data HHE
-
                     tr2_data_file = op.read(file_HHE)
-                    tr2_data_file.trim(evtime-TIME_WINDOW,evtime+TIME_WINDOW)
-                    tr2_data_file.taper(type='cosine',max_percentage=0.1)
-                    tr2_data_file.filter('bandpass',freqmin=PERIOD_BANDS_MIN,freqmax=PERIOD_BANDS_MAX,zerophase=True, corners=4)
+                    tr2_data_file = preprocess_trace(
+                        tr2_data_file,
+                        evtime,
+                        station_xml,
+                        remove_response=REMOVE_RESPONSE,
+                        output=OUTPUT_UNIT
+                    )
 
                     # --------
                     # Data HHN
-
                     tr1_data_file = op.read(file_HHN)
-                    tr1_data_file.trim(evtime-TIME_WINDOW,evtime+TIME_WINDOW)
-                    tr1_data_file.taper(type='cosine',max_percentage=0.1)
-                    tr1_data_file.filter('bandpass',freqmin=PERIOD_BANDS_MIN,freqmax=PERIOD_BANDS_MAX,zerophase=True, corners=4)
+                    tr1_data_file = preprocess_trace(
+                        tr1_data_file,
+                        evtime,
+                        station_xml,
+                        remove_response=REMOVE_RESPONSE,
+                        output=OUTPUT_UNIT
+                    )
 
                     # --------
                     # Data HHZ
-
                     trZ_data_file = op.read(file_HHZ)
-                    trZ_data_file.trim(evtime-TIME_WINDOW,evtime+TIME_WINDOW)
-                    trZ_data_file.taper(type='cosine',max_percentage=0.1)
-                    trZ_data_file.filter('bandpass',freqmin=PERIOD_BANDS_MIN,freqmax=PERIOD_BANDS_MAX,zerophase=True, corners=4)
+                    trZ_data_file = preprocess_trace(
+                        trZ_data_file,
+                        evtime,
+                        station_xml,
+                        remove_response=REMOVE_RESPONSE,
+                        output=OUTPUT_UNIT
+                    )
 
                     if len(tr2_data_file) > 0 and len(tr1_data_file) > 0 and len(trZ_data_file) > 0:
 
@@ -533,7 +626,7 @@ def calculate_metrics(input_lst):
                                 # -------------------------------------------------------------------------------------------------------------------------------
                                 # Calculating the optimal orientation
 
-                                results = Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=0.45,SNR_MIN=10,TRR_MIN=0.45,RVR_MIN=-1)
+                                results = Braunmiller_Pornsopin_algorithm(tr1,tr2,trZ,noise,baz,time_ins,CCVR_MIN=CVR_MIN,SNR_MIN=SNR_MIN,TRR_MIN=TRR_MIN,RVR_MAX=RVR_MAX)
 
                                 # -------------------------------------------------------------------------------------------------------------------------------
                                 # Calculating the Plunge of: P, B, and T axis

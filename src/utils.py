@@ -3,6 +3,10 @@ import pandas as pd
 import math
 from obspy import read_events
 
+from parameters_py.config import (
+					TIME_WINDOW,PERIOD_BANDS_MAX,PERIOD_BANDS_MIN,REMOVE_RESPONSE,OUTPUT_UNIT
+				   )
+
 def quakeml_to_dataframe(quakeml_file):
     # Read the QuakeML file using ObsPy
     catalog = read_events(quakeml_file)
@@ -218,3 +222,75 @@ def format_y_ticks(value, _):
     '''
     return f"{value:.0f}°"
 #-------------------------------------------------------------------------------
+
+def preprocess_trace(trace, evtime, inventory, remove_response=REMOVE_RESPONSE,
+                     output=OUTPUT_UNIT, pre_filt=(0.005, 0.01, 45.0, 50.0)):
+    
+    """
+    Preprocess a single seismic trace for further analysis.
+
+    This function performs a sequence of standard preprocessing steps on a
+    seismic trace, including trimming around the event origin time, removal
+    of linear trend and mean (demean), tapering, optional removal of the
+    instrumental response using StationXML metadata, and bandpass filtering.
+
+    The instrumental response removal is optional and can be controlled by
+    the `remove_response` parameter. When enabled, the trace is converted to
+    the desired physical unit (displacement, velocity, or acceleration).
+
+    Parameters
+    ----------
+    trace : obspy.Trace
+        The seismic trace to be processed.
+    evtime : obspy.UTCDateTime
+        Origin time of the seismic event used to define the trimming window.
+    inventory : obspy.Inventory
+        Station metadata (StationXML) used to remove the instrument response.
+    remove_response : bool, optional
+        If True, the instrumental response is removed from the trace.
+        Default is False.
+    output : str, optional
+        Physical unit of the output signal after response removal.
+        Accepted values are "DISP", "VEL", or "ACC". Default is "VEL".
+    pre_filt : tuple of float, optional
+        Pre-filter frequencies (f1, f2, f3, f4) in Hz used during response
+        removal to stabilize the deconvolution. Default is (0.005, 0.01, 45, 50).
+
+    Returns
+    -------
+    trace : obspy.Trace
+        The processed seismic trace, ready for analysis (e.g., component
+        rotation and orientation optimization).
+    """
+
+    # Trim
+    trace.trim(evtime - TIME_WINDOW, evtime + TIME_WINDOW)
+
+    # Detrend + demean (ObsPy)
+    trace.detrend("linear")
+    trace.detrend("demean")
+
+    # Taper
+    trace.taper(type="cosine", max_percentage=0.1)
+
+    # Remove instrument response (optional)
+    if remove_response:
+        trace.remove_response(
+            inventory=inventory,
+            output=output,
+            pre_filt=pre_filt,
+            zero_mean=False,
+            taper=False,
+            plot=False
+        )
+
+    # Bandpass
+    trace.filter(
+        'bandpass',
+        freqmin=PERIOD_BANDS_MIN,
+        freqmax=PERIOD_BANDS_MAX,
+        zerophase=True,
+        corners=4
+    )
+
+    return trace
