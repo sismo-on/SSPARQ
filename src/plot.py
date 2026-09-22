@@ -416,14 +416,30 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
         sta = net_sta_loc[1]
         loc = net_sta_loc[2]
     
-        # -------------
-        # Read XML file
-        
-        station_xml = read_inventory(glob.glob(XML_FOLDER+net+'.'+sta+'.'+loc+'*')[0])
-    
         # -------------------------------------------
-        # Read XML file to find station north azimuth
-    
+        # 1. First, read the files and create the DataFrame
+        # -------------------------------------------
+        colnames = ['network', 'station','location','evtime','SNR', 'phi', 'theta','clock_error', 'quality', 'sensitivity_HHN', 'sensitivity_HHE', 'sensitivity_HHZ']
+
+        feather_files_lst = [pd.read_feather(i, columns=colnames) for i in glob.glob(SSPARQ_OUTPUT+'FEATHER_FILES/METRICS/'+net+'.'+sta+'.'+loc+'/*')]
+
+        station_df = pd.concat(feather_files_lst)
+        station_df['year_month'] = station_df['evtime'].dt.to_period('M').astype(str)
+        station_df['year_month'] = pd.to_datetime(station_df['year_month'], format='%Y-%m').dt.to_period('M')
+
+        df_sta = station_df[station_df['station'] == sta].copy()
+
+        # Get the first (oldest) and last (newest) evtime values
+        # Using .min() and .max() ensures the correct dates regardless of row order
+        first_evtime = df_sta['evtime'].min()
+        last_evtime = df_sta['evtime'].max()
+
+        # -------------------------------------------
+        # 2. Read the XML file using the dates extracted above
+        # -------------------------------------------
+                
+        station_xml = read_inventory(glob.glob(XML_FOLDER+net+'.'+sta+'.'+loc+'*')[0])
+
         data_xml = []
         for stxml in station_xml[0][0]:
             if "H1" in stxml.code or "HN" in stxml.code:
@@ -433,33 +449,31 @@ def station_overview_metrics(net_sta_loc,SSPARQ_OUTPUT=SSPARQ_OUTPUT,XML_FOLDER=
                 if theta_component > 180:
                     theta_component -= 360
                 
-                # end_date
+                # Keep original XML end_date, if None put a placeholder
                 end_date = stxml.end_date
                 if end_date is None:
                     end_date = datetime.now()
                 
+                # Append with original XML dates
                 data_xml.append({
                     'start_date': stxml.start_date,
                     'end_date': end_date,
                     'theta': theta_component
                 })
-    
+
+        # Overwrite only the very first start_date and the very last end_date
+
+        data_xml = sorted(data_xml, key=lambda x: x['start_date'])
+
+        data_xml[0]['start_date'] = first_evtime
+        data_xml[-1]['end_date'] = last_evtime
+
         # stationXML info DataFrame
         df_xml = pd.DataFrame(data_xml)
-    
-        colnames = ['network', 'station','location','evtime','SNR', 'phi', 'theta','clock_error', 'quality', 'sensitivity_HHN', 'sensitivity_HHE', 'sensitivity_HHZ']
-        
-        feather_files_lst = [pd.read_feather(i,columns=colnames) for i in glob.glob(SSPARQ_OUTPUT+'FEATHER_FILES/METRICS/'+net+'.'+sta+'.'+loc+'/*')]
     
         # Create figure path:
         
         output_figure_SSPARQ = SSPARQ_OUTPUT + 'FIGURES/FINAL_RESULT/'+net+'/'
-    
-        station_df = pd.concat(feather_files_lst)
-        station_df['year_month'] = station_df['evtime'].dt.to_period('M').astype(str)
-        station_df['year_month'] = pd.to_datetime(station_df['year_month'], format='%Y-%m').dt.to_period('M')
-        
-        df_sta = station_df[station_df['station'] == sta].copy()
     
         # ------------------------------------
         # Data
